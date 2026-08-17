@@ -502,6 +502,86 @@ const SmartTargetingTestSamplingPreview: React.FC<
     language,
   ]);
 
+  // Keep the Budget step synchronized with the server even after a terminal
+  // result. This also detects a calculation that is started elsewhere. Active
+  // calculations use the effect above, which polls the same endpoint until
+  // their status is no longer `calculating`.
+  useEffect(() => {
+    const uuid = campaignUuid?.trim();
+    if (!uuid || isSmartTargetingTestSamplingActive(job?.calculation)) return;
+
+    const sequence = requestSequenceRef.current;
+    const jobInputKey = inputKeyRef.current;
+    let stopped = false;
+    let timerId: number | undefined;
+
+    const schedule = () => {
+      if (stopped) return;
+      timerId = window.setTimeout(
+        () => void refreshCurrent(),
+        SMART_TARGETING_TEST_SAMPLING_POLL_INTERVAL_MS
+      );
+    };
+
+    const refreshCurrent = async () => {
+      if (stopped || requestSequenceRef.current !== sequence) return;
+      if (requestInFlightRef.current || currentLookupAbortRef.current) {
+        schedule();
+        return;
+      }
+
+      const controller = new AbortController();
+      currentLookupAbortRef.current = controller;
+      let response;
+      try {
+        response =
+          await apiService.getCurrentSmartTargetingTestSamplingCalculation(
+            uuid,
+            controller.signal
+          );
+      } catch {
+        response = null;
+      }
+      if (currentLookupAbortRef.current === controller) {
+        currentLookupAbortRef.current = null;
+      }
+      if (
+        stopped ||
+        controller.signal.aborted ||
+        requestSequenceRef.current !== sequence ||
+        inputKeyRef.current !== jobInputKey
+      ) {
+        return;
+      }
+
+      if (!response?.success || !response.data) {
+        if (EMPTY_CALCULATION_CODES.has(response?.error?.code || '')) {
+          setJob(null);
+        }
+        schedule();
+        return;
+      }
+
+      const normalized = normalizeSmartTargetingTestSamplingCalculation(
+        response.data
+      );
+      if (normalized) {
+        adoptCalculation(normalized, uuid, jobInputKey);
+      }
+      schedule();
+    };
+
+    schedule();
+    return () => {
+      stopped = true;
+      if (timerId !== undefined) window.clearTimeout(timerId);
+      if (currentLookupAbortRef.current) {
+        currentLookupAbortRef.current.abort();
+        currentLookupAbortRef.current = null;
+      }
+    };
+  }, [adoptCalculation, campaignUuid, job]);
+
   useEffect(
     () => () => {
       requestSequenceRef.current += 1;
