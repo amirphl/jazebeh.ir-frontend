@@ -1073,6 +1073,9 @@ class ApiService {
     query.set('page', String(params.page));
     query.set('page_size', String(params.page_size));
     if (params.search?.trim()) query.set('search', params.search.trim());
+    if (params.capacity !== undefined) {
+      query.set('capacity', String(params.capacity));
+    }
     if (params.sort_by) query.set('sort_by', params.sort_by);
     if (params.sort_direction) {
       query.set('sort_direction', params.sort_direction);
@@ -1115,6 +1118,9 @@ class ApiService {
     query.set('page', String(params.page));
     query.set('page_size', String(params.page_size));
     if (params.search?.trim()) query.set('search', params.search.trim());
+    if (params.capacity !== undefined) {
+      query.set('capacity', String(params.capacity));
+    }
     if (params.sort_by) query.set('sort_by', params.sort_by);
     if (params.sort_direction) {
       query.set('sort_direction', params.sort_direction);
@@ -1216,6 +1222,9 @@ class ApiService {
       body: JSON.stringify({
         count: payload.count,
         ...(payload.search?.trim() ? { search: payload.search.trim() } : {}),
+        ...(payload.capacity !== undefined
+          ? { capacity: payload.capacity }
+          : {}),
         ...(payload.sort_by ? { sort_by: payload.sort_by } : {}),
         ...(payload.sort_direction
           ? { sort_direction: payload.sort_direction }
