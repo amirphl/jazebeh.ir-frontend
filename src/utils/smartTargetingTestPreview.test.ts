@@ -151,7 +151,7 @@ describe('Smart Targeting Test preview helpers', () => {
     expect(isCurrentSmartTargetingTestPreview(value)).toBe(false);
   });
 
-  it('normalizes an active asynchronous calculation without result fields', () => {
+  it('normalizes a non-calculating asynchronous status without treating it as active', () => {
     const normalized = normalizeSmartTargetingTestSamplingCalculation({
       calculation_id: 91,
       campaign_id: 7,
@@ -170,7 +170,7 @@ describe('Smart Targeting Test preview helpers', () => {
       status: 'queued',
       selected_score_classes: ['A', 'B'],
     });
-    expect(isSmartTargetingTestSamplingActive(normalized)).toBe(true);
+    expect(isSmartTargetingTestSamplingActive(normalized)).toBe(false);
     expect(
       normalized &&
         doesSmartTargetingTestSamplingMatchInputs(
