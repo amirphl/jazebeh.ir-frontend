@@ -337,6 +337,8 @@ describe('SmartTargetingExactCapacity', () => {
         message: 'ok',
         data: calculation({
           status: 'calculating',
+          is_current: false,
+          recalculation_required: true,
           raw_audience_count: null,
           eligible_unique_audience_count_before_approved_campaign_deduction:
             null,
@@ -459,7 +461,7 @@ describe('SmartTargetingExactCapacity', () => {
     expect(screen.queryByTestId('smart-targeting-capacity-spinner')).toBeNull();
   });
 
-  it.each(['calculated', 'failed'])(
+  it.each(['stale', 'expired', 'calculated', 'not_calculated', 'failed'])(
     'shows the calculate button when exact-capacity status is %s',
     async status => {
       mockedApiService.getCurrentSmartTargetingCapacityCalculation.mockResolvedValue(
@@ -478,6 +480,7 @@ describe('SmartTargetingExactCapacity', () => {
       await waitFor(() =>
         expect(button.getAttribute('aria-busy')).toBe('false')
       );
+      expect((button as HTMLButtonElement).disabled).toBe(false);
       expect(
         screen.queryByTestId('smart-targeting-capacity-spinner')
       ).toBeNull();
