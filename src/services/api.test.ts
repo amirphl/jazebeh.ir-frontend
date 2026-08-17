@@ -40,6 +40,49 @@ describe('campaign creation API safety', () => {
     });
   });
 
+  it('serializes an optional Smart Targeting capacity filter only when present', async () => {
+    const fetchMock = jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: {} }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+    await apiService.listCampaignSmartTargetingTags('campaign-uuid', {
+      page: 1,
+      page_size: 20,
+    });
+    await apiService.listBundleSmartTargetingTags(12, {
+      page: 1,
+      page_size: 20,
+      capacity: 0,
+    });
+
+    const campaignRequestUrl = String(fetchMock.mock.calls[0]?.[0]);
+    const bundleRequestUrl = String(fetchMock.mock.calls[1]?.[0]);
+    expect(campaignRequestUrl).not.toContain('capacity=');
+    expect(bundleRequestUrl).toContain('capacity=0');
+  });
+
+  it('includes the capacity filter when auto-selecting campaign tags', async () => {
+    const fetchMock = jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: {} }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+    await apiService.autoSelectCampaignSmartTargetingTags('campaign-uuid', {
+      count: 5,
+      capacity: 100,
+    });
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      count: 5,
+      capacity: 100,
+    });
+  });
+
   it('submits the Smart Targeting Test sampling job without a request body', async () => {
     const fetchMock = jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(
