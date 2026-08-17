@@ -14,13 +14,9 @@ export const DEFAULT_SMART_TARGETING_TEST_SAMPLE_SIZE = 0;
 export const SMART_TARGETING_TEST_SAMPLING_POLL_INTERVAL_MS = 10_000;
 export const SMART_TARGETING_TEST_SAMPLING_MAX_POLL_RETRIES = 3;
 
-const ACTIVE_CALCULATION_STATUSES = new Set([
-  'calculating',
-  'queued',
-  'pending',
-  'running',
-  'processing',
-]);
+// The API's `status` field controls the action state. Only `calculating`
+// represents in-progress work; every other status allows a new request.
+const ACTIVE_CALCULATION_STATUSES = new Set(['calculating']);
 const COMPLETED_CALCULATION_STATUSES = new Set([
   'calculated',
   'completed',
@@ -332,8 +328,6 @@ export const isSmartTargetingTestSamplingActive = (
 ): boolean =>
   Boolean(
     calculation &&
-    calculation.is_current &&
-    !calculation.recalculation_required &&
     ACTIVE_CALCULATION_STATUSES.has(normalizeStatus(calculation.status))
   );
 
@@ -360,7 +354,8 @@ export const isSmartTargetingTestSamplingStale = (
     calculation &&
     (!calculation.is_current ||
       calculation.recalculation_required ||
-      normalizeStatus(calculation.status) === 'recalculation_required')
+      normalizeStatus(calculation.status) === 'recalculation_required' ||
+      normalizeStatus(calculation.status) === 'stale')
   );
 
 export const isKnownSmartTargetingTestSamplingStatus = (
@@ -372,6 +367,8 @@ export const isKnownSmartTargetingTestSamplingStatus = (
     ACTIVE_CALCULATION_STATUSES.has(status) ||
     COMPLETED_CALCULATION_STATUSES.has(status) ||
     FAILED_CALCULATION_STATUSES.has(status) ||
+    status === 'stale' ||
+    status === 'not_calculated' ||
     status === 'recalculation_required'
   );
 };
