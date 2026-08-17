@@ -395,6 +395,7 @@ export interface ListSmartTargetingTagsParams {
   page: number;
   page_size: number;
   search?: string;
+  capacity?: number;
   sort_by?: SmartTargetingSortBy;
   sort_direction?: SmartTargetingSortDirection;
 }
@@ -416,6 +417,7 @@ export interface ReplaceSmartTargetingSelectionRequest {
 export interface AutoSelectSmartTargetingTagsRequest {
   count: number;
   search?: string;
+  capacity?: number;
   sort_by?: SmartTargetingSortBy;
   sort_direction?: SmartTargetingSortDirection;
 }
