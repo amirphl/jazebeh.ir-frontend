@@ -7,13 +7,11 @@ export const SMART_TARGETING_CAPACITY_POLL_INTERVAL_MS = 10_000;
 export const SMART_TARGETING_CAPACITY_MAX_POLL_RETRIES = 3;
 
 const SCORE_CLASS_ORDER: AudienceGrade[] = ['A', 'B', 'C'];
-const ACTIVE_STATUSES = new Set([
-  'calculating',
-  'queued',
-  'pending',
-  'running',
-  'processing',
-]);
+// `status` is the source of truth for the exact-capacity UI.  In particular,
+// do not keep the calculation action blocked for a stale metadata flag or for
+// legacy/unknown in-progress values: the API exposes `calculating` while work
+// is actually in progress.
+const ACTIVE_STATUSES = new Set(['calculating']);
 const FAILED_STATUSES = new Set(['failed', 'cancelled', 'canceled', 'expired']);
 const CALCULATED_STATUSES = new Set(['calculated', 'completed']);
 const CAPACITY_RECALCULATION_ERROR_CODES = new Set([
@@ -182,8 +180,6 @@ export const isSmartTargetingCapacityActive = (
 ): boolean =>
   Boolean(
     calculation &&
-    calculation.is_current &&
-    !calculation.recalculation_required &&
     ACTIVE_STATUSES.has(normalizeStatus(calculation.status))
   );
 
@@ -208,7 +204,8 @@ export const isSmartTargetingCapacityStale = (
     calculation &&
     (!calculation.is_current ||
       calculation.recalculation_required ||
-      normalizeStatus(calculation.status) === 'recalculation_required')
+      normalizeStatus(calculation.status) === 'recalculation_required' ||
+      normalizeStatus(calculation.status) === 'stale')
   );
 
 export const isKnownSmartTargetingCapacityStatus = (
@@ -220,6 +217,7 @@ export const isKnownSmartTargetingCapacityStatus = (
     ACTIVE_STATUSES.has(status) ||
     FAILED_STATUSES.has(status) ||
     CALCULATED_STATUSES.has(status) ||
+    status === 'stale' ||
     status === 'recalculation_required' ||
     status === 'not_calculated'
   );
