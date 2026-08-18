@@ -335,10 +335,12 @@ const ReportDetailsModal: React.FC<ReportDetailsModalProps> = ({
             label={copy.modal.bundleCategory}
             value={getBundleCategoryValue(bundle)}
           />
+          {/*
           <ReportField
             label={copy.modal.bundleJob}
             value={getBundleJobValue(bundle)}
           />
+          */}
         </ReportFieldGrid>
       </ReportSection>
 
@@ -445,6 +447,7 @@ const ReportDetailsModal: React.FC<ReportDetailsModalProps> = ({
             label={copy.modal.cities}
             value={joinValues(campaign.city)}
           />
+          {/*
           <ReportField
             label={copy.modal.bundleCategory}
             value={formatDisplayValue(campaign.job_category)}
@@ -453,6 +456,7 @@ const ReportDetailsModal: React.FC<ReportDetailsModalProps> = ({
             label={copy.modal.bundleJob}
             value={formatDisplayValue(campaign.job)}
           />
+          */}
         </ReportFieldGrid>
       </ReportSection>
 
