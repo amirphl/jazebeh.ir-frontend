@@ -174,7 +174,11 @@ describe('SmartTargetingTestSamplingPreview', () => {
       {
         success: true,
         message: 'ok',
-        data: calculation({ status: 'calculating' }) as any,
+        data: calculation({
+          status: 'calculating',
+          is_current: false,
+          recalculation_required: true,
+        }) as any,
       }
     );
 
@@ -223,7 +227,11 @@ describe('SmartTargetingTestSamplingPreview', () => {
       {
         success: true,
         message: 'accepted',
-        data: calculation({ status: 'calculating' }) as any,
+        data: calculation({
+          status: 'calculating',
+          is_current: false,
+          recalculation_required: true,
+        }) as any,
       }
     );
     mockedApiService.getCurrentSmartTargetingTestSamplingCalculation
@@ -351,12 +359,20 @@ describe('SmartTargetingTestSamplingPreview', () => {
       .mockResolvedValueOnce({
         success: true,
         message: 'ok',
-        data: calculation({ status: 'calculating' }) as any,
+        data: calculation({
+          status: 'calculating',
+          is_current: false,
+          recalculation_required: true,
+        }) as any,
       })
       .mockResolvedValueOnce({
         success: true,
         message: 'ok',
-        data: calculation({ status: 'calculating' }) as any,
+        data: calculation({
+          status: 'calculating',
+          is_current: false,
+          recalculation_required: true,
+        }) as any,
       })
       .mockResolvedValueOnce({
         success: true,
@@ -416,6 +432,43 @@ describe('SmartTargetingTestSamplingPreview', () => {
     ).toBeNull();
   });
 
+  it('keeps refreshing the current status while the Budget step is open', async () => {
+    jestGlobals.useFakeTimers();
+    mockedApiService.getCurrentSmartTargetingTestSamplingCalculation.mockResolvedValue(
+      {
+        success: true,
+        message: 'ok',
+        data: completedCalculation as any,
+      }
+    );
+
+    render(<SmartTargetingTestSamplingPreview {...defaultProps()} />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(
+      mockedApiService.getCurrentSmartTargetingTestSamplingCalculation
+    ).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jestGlobals.advanceTimersByTime(10_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(
+      mockedApiService.getCurrentSmartTargetingTestSamplingCalculation
+    ).toHaveBeenCalledTimes(2);
+    expect(
+      (
+        screen.getByRole('button', {
+          name: copy.checkAvailability,
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(false);
+  });
+
   it('reconciles an ambiguous submit failure instead of submitting twice', async () => {
     const props = defaultProps();
     mockedApiService.getCurrentSmartTargetingTestSamplingCalculation
@@ -423,7 +476,7 @@ describe('SmartTargetingTestSamplingPreview', () => {
       .mockResolvedValueOnce({
         success: true,
         message: 'ok',
-        data: calculation({ status: 'processing' }) as any,
+        data: calculation({ status: 'calculating' }) as any,
       });
     mockedApiService.startSmartTargetingTestSamplingCalculation.mockResolvedValue(
       {
