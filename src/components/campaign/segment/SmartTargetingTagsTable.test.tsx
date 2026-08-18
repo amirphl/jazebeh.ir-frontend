@@ -204,6 +204,30 @@ describe('SmartTargetingTagsTable', () => {
     expect(screen.getByTestId('selection').textContent).toContain('1,2');
   });
 
+  it('clears the selected tags locally without reloading tag pages', async () => {
+    mockedApiService.listBundleSmartTargetingTags.mockResolvedValue(
+      response(
+        [tag(1, 'First tag', 10), tag(2, 'Second tag', 20)],
+        1,
+        2,
+        1
+      ) as any
+    );
+
+    render(<SelectionHarness initialTagIds={[1, 2]} />);
+
+    await screen.findByRole('checkbox', { name: 'First tag' });
+    const requestCountBeforeReset =
+      mockedApiService.listBundleSmartTargetingTags.mock.calls.length;
+
+    await click(screen.getByRole('button', { name: copy.resetSelection }));
+
+    expect(screen.getByTestId('selection').textContent).toBe('');
+    expect(
+      mockedApiService.listBundleSmartTargetingTags.mock.calls.length
+    ).toBe(requestCountBeforeReset);
+  });
+
   it('keeps ordering pending until selected tags match the active table order', async () => {
     mockedApiService.listBundleSmartTargetingTags.mockResolvedValue(
       response(
@@ -319,6 +343,34 @@ describe('SmartTargetingTagsTable', () => {
     expect(
       mockedApiService.listCampaignSmartTargetingTags
     ).not.toHaveBeenCalled();
+  });
+
+  it('omits an empty capacity filter and sends an entered capacity', async () => {
+    mockedApiService.listBundleSmartTargetingTags.mockResolvedValue(
+      response([tag(1, 'Bundle tag', 10)]) as any
+    );
+
+    render(<SelectionHarness />);
+    await screen.findByRole('checkbox', { name: 'Bundle tag' });
+
+    expect(
+      mockedApiService.listBundleSmartTargetingTags.mock.calls[0]?.[1]
+    ).toEqual(expect.objectContaining({ capacity: undefined }));
+
+    await change(
+      screen.getByRole('spinbutton', { name: copy.capacityLabel }),
+      '100'
+    );
+
+    await waitFor(() =>
+      expect(
+        mockedApiService.listBundleSmartTargetingTags
+      ).toHaveBeenLastCalledWith(
+        12,
+        expect.objectContaining({ capacity: 100, page: 1 }),
+        expect.any(AbortSignal)
+      )
+    );
   });
 
   it('hydrates an authoritative empty persisted selection for a clean edit', async () => {
@@ -488,6 +540,10 @@ describe('SmartTargetingTagsTable', () => {
     await screen.findByRole('checkbox', { name: 'Persisted tag' });
 
     await change(
+      screen.getByRole('spinbutton', { name: copy.capacityLabel }),
+      '100'
+    );
+    await change(
       screen.getByRole('spinbutton', { name: copy.autoSelectLabel }),
       '1'
     );
@@ -498,7 +554,7 @@ describe('SmartTargetingTagsTable', () => {
         mockedApiService.autoSelectCampaignSmartTargetingTags
       ).toHaveBeenCalledWith(
         'campaign-uuid',
-        expect.objectContaining({ count: 1, search: '' }),
+        expect.objectContaining({ count: 1, search: '', capacity: 100 }),
         expect.any(AbortSignal)
       );
     });
