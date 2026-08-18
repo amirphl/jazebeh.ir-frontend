@@ -75,7 +75,8 @@ const BundleInfoSection: React.FC<BundleInfoSectionProps> = ({
         <FormField
           id='bundle-persona'
           label={copy.createPage.fields.persona}
-          type='text'
+          type='textarea'
+          rows={11}
           value={values.targetAudiencePersona}
           onChange={onPersonaChange}
           placeholder={copy.createPage.placeholders.persona}
