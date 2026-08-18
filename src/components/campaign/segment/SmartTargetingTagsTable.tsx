@@ -30,6 +30,8 @@ export interface SmartTargetingCopy {
   description: string;
   searchLabel: string;
   searchPlaceholder: string;
+  capacityLabel: string;
+  capacityPlaceholder: string;
   sortByLabel: string;
   sortDirectionLabel: string;
   defaultOrder: string;
@@ -53,6 +55,7 @@ export interface SmartTargetingCopy {
   autoSelectPlaceholder: string;
   autoSelectButton: string;
   autoSelecting: string;
+  resetSelection: string;
   selectedTags: string;
   selectedRawCapacity: string;
   audiences: string;
@@ -115,6 +118,14 @@ const normalizePositiveInteger = (value: unknown): number | null => {
 
 const normalizeFiniteNumber = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+const normalizeCapacityFilter = (value: string): number | undefined => {
+  const trimmed = value.trim();
+  if (!/^-?\d+$/.test(trimmed)) return undefined;
+
+  const numeric = Number(trimmed);
+  return Number.isSafeInteger(numeric) ? numeric : undefined;
+};
 
 const normalizeTagIds = (value: unknown): number[] => {
   if (!Array.isArray(value)) return [];
@@ -245,6 +256,8 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
   const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [capacity, setCapacity] = useState('');
+  const [debouncedCapacity, setDebouncedCapacity] = useState('');
   const [sortBy, setSortBy] = useState<SmartTargetingSortBy | ''>(
     initialSortBy
   );
@@ -313,6 +326,8 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
     setPage(1);
     setSearch('');
     setDebouncedSearch('');
+    setCapacity('');
+    setDebouncedCapacity('');
     setSortBy(initialSortBy);
     setSortDirection(initialSortDirection);
     setEffectiveSortBy('');
@@ -336,13 +351,13 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const nextSearch = search.trim();
-      setDebouncedSearch(nextSearch);
+      setDebouncedSearch(search.trim());
+      setDebouncedCapacity(capacity.trim());
       setPage(1);
     }, 300);
 
     return () => window.clearTimeout(timer);
-  }, [search]);
+  }, [capacity, search]);
 
   const selectedSet = useMemo(() => new Set(selectedTagIds), [selectedTagIds]);
   const selectionMembershipKey = useMemo(
@@ -457,6 +472,7 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
         page,
         page_size: pageSize,
         search: debouncedSearch,
+        capacity: normalizeCapacityFilter(debouncedCapacity),
         sort_by: sortBy || undefined,
         sort_direction: sortBy ? sortDirection : undefined,
       };
@@ -499,6 +515,7 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
       campaignUuid,
       copy.fetchError,
       debouncedSearch,
+      debouncedCapacity,
       language,
       page,
       pageSize,
@@ -724,6 +741,13 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
     onSelectionChange(nextIds, nextRawCapacity, 'local');
   };
 
+  const handleResetSelection = () => {
+    if (selectedTagIds.length === 0) return;
+
+    hasUserEditedRef.current = true;
+    onSelectionChange([], 0, 'local');
+  };
+
   const handlePageSizeChange = (nextPageSize: number) => {
     setPageSize(nextPageSize);
     setPage(1);
@@ -781,6 +805,7 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
   const collectBundleAutoSelection = async (
     count: number,
     activeSearch: string,
+    activeCapacity: number | undefined,
     activeSortBy: SmartTargetingSortBy | undefined,
     activeSortDirection: SmartTargetingSortDirection | undefined,
     signal: AbortSignal,
@@ -801,6 +826,7 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
           page: nextPage,
           page_size: requestPageSize,
           search: activeSearch,
+          capacity: activeCapacity,
           sort_by: activeSortBy,
           sort_direction: activeSortBy ? activeSortDirection : undefined,
         },
@@ -904,7 +930,10 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
     if (autoInFlightRef.current) return;
 
     const activeSearch = search.trim();
-    const validation = getAutoCountValidation(activeSearch === debouncedSearch);
+    const activeCapacity = normalizeCapacityFilter(capacity);
+    const validation = getAutoCountValidation(
+      activeSearch === debouncedSearch && capacity.trim() === debouncedCapacity
+    );
     if (validation.error || !validation.count) {
       setAutoError(validation.error || copy.invalidAutoCount);
       return;
@@ -934,6 +963,7 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
           {
             count: validation.count,
             search: activeSearch,
+            capacity: activeCapacity,
             sort_by: activeSortBy,
             sort_direction: activeSortBy ? activeSortDirection : undefined,
           },
@@ -970,6 +1000,7 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
       const result = await collectBundleAutoSelection(
         validation.count,
         activeSearch,
+        activeCapacity,
         activeSortBy,
         activeSortDirection,
         controller.signal,
@@ -1019,7 +1050,7 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
           </Button>
         </div>
 
-        <div className='mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(220px,1fr)_220px_180px]'>
+        <div className='mt-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(220px,1fr)_180px_220px_180px]'>
           <label className='block text-sm font-medium text-gray-700'>
             <span>{copy.searchLabel}</span>
             <div className='relative mt-1'>
@@ -1033,6 +1064,18 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
                 className='w-full rounded-md border border-gray-300 py-2 pe-3 ps-9 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500'
               />
             </div>
+          </label>
+
+          <label className='block text-sm font-medium text-gray-700'>
+            <span>{copy.capacityLabel}</span>
+            <input
+              type='number'
+              step={1}
+              value={capacity}
+              onChange={event => setCapacity(event.target.value)}
+              placeholder={copy.capacityPlaceholder}
+              className='mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500'
+            />
           </label>
 
           <label className='block text-sm font-medium text-gray-700'>
@@ -1072,7 +1115,7 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
           </label>
         </div>
 
-        <div className='mt-5 grid grid-cols-1 gap-3 md:grid-cols-[minmax(220px,320px)_auto] md:items-end'>
+        <div className='mt-5 grid grid-cols-1 gap-3 md:grid-cols-[minmax(220px,320px)_auto_auto] md:items-end'>
           <label className='block text-sm font-medium text-gray-700'>
             <span>{copy.autoSelectLabel}</span>
             <input
@@ -1095,6 +1138,14 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
             className='md:w-fit'
           >
             {isAutoSelecting ? copy.autoSelecting : copy.autoSelectButton}
+          </Button>
+          <Button
+            variant='outline'
+            onClick={handleResetSelection}
+            disabled={selectedTagIds.length === 0}
+            className='md:w-fit'
+          >
+            {copy.resetSelection}
           </Button>
         </div>
 
