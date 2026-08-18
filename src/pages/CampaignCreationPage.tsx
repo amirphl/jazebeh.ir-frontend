@@ -19,7 +19,6 @@ import CampaignBudgetStep from '../components/campaign/CampaignBudgetStep';
 import CampaignPaymentStep from '../components/campaign/CampaignPaymentStep';
 import { budgetI18n } from '../components/campaign/budget/budgetTranslations';
 import { contentI18n } from '../components/campaign/content/contentTranslations';
-import { paymentI18n } from '../components/campaign/payment/paymentTranslations';
 import Button from '../components/ui/Button';
 import Stepper from '../components/ui/Stepper';
 import {
@@ -40,8 +39,6 @@ const CampaignCreationPage: React.FC = () => {
     budgetI18n[language as keyof typeof budgetI18n] || budgetI18n.en;
   const contentCopy =
     contentI18n[language as keyof typeof contentI18n] || contentI18n.en;
-  const paymentCopy =
-    paymentI18n[language as keyof typeof paymentI18n] || paymentI18n.en;
   const {
     currentStep,
     campaignData,
@@ -466,12 +463,6 @@ const CampaignCreationPage: React.FC = () => {
       title: budgetCopy.title,
       isCompleted: validation.isStepCompleted(3),
       isAccessible: validation.isStepAccessible(3),
-    },
-    {
-      id: 4,
-      title: paymentCopy.title,
-      isCompleted: validation.isStepCompleted(4),
-      isAccessible: validation.isStepAccessible(4),
     },
   ];
 
