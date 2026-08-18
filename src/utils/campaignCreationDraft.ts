@@ -110,6 +110,7 @@ export const createCampaignCreationDraft = (overrides?: {
       smartTargetingSelectionDirty: false,
       smartTargetingScoreClasses: [],
       smartTargetingScoreClassesDirty: false,
+      smartTargetingTestSamplingInputsDirty: false,
       smartTargetingCapacityCalculation: null,
       smartTargetingExactCapacityRequired: false,
       smartTargetingSortBy: '',
@@ -232,6 +233,7 @@ export const normalizeCampaignResponseToDraft = (
             : undefined)
       ),
       smartTargetingScoreClassesDirty: false,
+      smartTargetingTestSamplingInputsDirty: false,
       smartTargetingCapacityCalculation: null,
       smartTargetingExactCapacityRequired: false,
       sampleSizePerTag:

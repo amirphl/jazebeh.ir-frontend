@@ -147,6 +147,7 @@ const CampaignCreationPage: React.FC = () => {
           smartTargetingCapacityCalculation: pendingCalculation,
           smartTargetingScoreClasses: pendingCalculation.selected_score_classes,
           smartTargetingScoreClassesDirty: false,
+          smartTargetingTestSamplingInputsDirty: false,
           smartTargetingExactCapacityRequired: true,
         });
       } else if (campaignData.segment.smartTargetingCapacityCalculation) {

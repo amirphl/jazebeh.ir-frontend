@@ -1168,7 +1168,6 @@ class ApiService {
       ? payload.tag_ids.filter(id => Number.isInteger(id) && id > 0)
       : [];
     if (
-      tagIds.length === 0 ||
       tagIds.length > 10000 ||
       tagIds.length !== payload.tag_ids.length ||
       new Set(tagIds).size !== tagIds.length

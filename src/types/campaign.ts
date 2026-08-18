@@ -24,6 +24,7 @@ export interface CampaignSegment {
   smartTargetingSelectionDirty?: boolean;
   smartTargetingScoreClasses?: AudienceGrade[];
   smartTargetingScoreClassesDirty?: boolean;
+  smartTargetingTestSamplingInputsDirty?: boolean;
   smartTargetingCapacityCalculation?: SmartTargetingCapacityCalculationResponse | null;
   smartTargetingExactCapacityRequired?: boolean;
   smartTargetingSortBy?: SmartTargetingSortBy | '';

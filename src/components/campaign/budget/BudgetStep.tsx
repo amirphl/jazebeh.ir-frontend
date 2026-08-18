@@ -179,6 +179,7 @@ const BudgetStep: React.FC = () => {
         smartTargetingSelectedRawCapacity: selectedRawCapacity,
         smartTargetingSelectionDirty: false,
         smartTargetingScoreClassesDirty: false,
+        smartTargetingTestSamplingInputsDirty: false,
       });
     },
     [updateLevel]
@@ -246,6 +247,12 @@ const BudgetStep: React.FC = () => {
             previewIsCurrent={isCurrentSmartTargetingTestPreview(campaignData)}
             previewIsStale={
               campaignData.segment.smartTargetingTestPreviewStale === true
+            }
+            configurationIsDirty={
+              campaignData.segment.smartTargetingSelectionDirty === true ||
+              campaignData.segment.smartTargetingScoreClassesDirty === true ||
+              campaignData.segment.smartTargetingTestSamplingInputsDirty ===
+                true
             }
             selectionOrderIsPending={
               campaignData.segment.smartTargetingSelectionOrderPending === true

@@ -90,6 +90,7 @@ const defaultProps = () => ({
   preview: null,
   previewIsCurrent: false,
   previewIsStale: false,
+  configurationIsDirty: false,
   selectionOrderIsPending: false,
   prepareCampaign: jestGlobals.fn(async () => ({
     success: true,
@@ -195,6 +196,109 @@ describe('SmartTargetingTestSamplingPreview', () => {
     );
   });
 
+  it('starts exactly one replacement calculation for a stale current result', async () => {
+    mockedApiService.getCurrentSmartTargetingTestSamplingCalculation.mockResolvedValue(
+      {
+        success: true,
+        message: 'ok',
+        data: calculation({
+          status: 'stale',
+          is_current: false,
+          recalculation_required: true,
+        }) as any,
+      }
+    );
+    mockedApiService.startSmartTargetingTestSamplingCalculation.mockResolvedValue(
+      {
+        success: true,
+        message: 'accepted',
+        data: calculation({ status: 'calculating' }) as any,
+      }
+    );
+
+    render(<SmartTargetingTestSamplingPreview {...defaultProps()} />);
+
+    await waitFor(() =>
+      expect(
+        mockedApiService.startSmartTargetingTestSamplingCalculation
+      ).toHaveBeenCalledTimes(1)
+    );
+    expect(
+      mockedApiService.startSmartTargetingTestSamplingCalculation
+    ).toHaveBeenCalledWith('campaign-uuid', expect.any(AbortSignal));
+  });
+
+  it('starts a calculation for a minimal not-calculated response', async () => {
+    mockedApiService.getCurrentSmartTargetingTestSamplingCalculation.mockResolvedValue(
+      {
+        success: true,
+        message: 'ok',
+        data: { status: 'not_calculated' } as any,
+      }
+    );
+    mockedApiService.startSmartTargetingTestSamplingCalculation.mockResolvedValue(
+      {
+        success: true,
+        message: 'accepted',
+        data: calculation({ status: 'calculating' }) as any,
+      }
+    );
+
+    render(<SmartTargetingTestSamplingPreview {...defaultProps()} />);
+
+    await waitFor(() =>
+      expect(
+        mockedApiService.startSmartTargetingTestSamplingCalculation
+      ).toHaveBeenCalledTimes(1)
+    );
+  });
+
+  it('restarts a failed calculation on the first current-status lookup', async () => {
+    mockedApiService.getCurrentSmartTargetingTestSamplingCalculation.mockResolvedValue(
+      {
+        success: true,
+        message: 'ok',
+        data: calculation({ status: 'failed' }) as any,
+      }
+    );
+
+    render(<SmartTargetingTestSamplingPreview {...defaultProps()} />);
+
+    await waitFor(() =>
+      expect(
+        mockedApiService.startSmartTargetingTestSamplingCalculation
+      ).toHaveBeenCalledTimes(1)
+    );
+  });
+
+  it('persists dirty configuration before starting sampling', async () => {
+    const props = defaultProps();
+    mockedApiService.startSmartTargetingTestSamplingCalculation.mockResolvedValue(
+      {
+        success: true,
+        message: 'accepted',
+        data: calculation({ status: 'calculating' }) as any,
+      }
+    );
+
+    render(
+      <SmartTargetingTestSamplingPreview {...props} configurationIsDirty />
+    );
+
+    await waitFor(() =>
+      expect(
+        mockedApiService.replaceCampaignSmartTargetingSelection
+      ).toHaveBeenCalledWith(
+        'campaign-uuid',
+        { tag_ids: [2, 1] },
+        expect.any(AbortSignal)
+      )
+    );
+    expect(
+      mockedApiService.startSmartTargetingTestSamplingCalculation
+    ).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the regular button while the latest result is being loaded', async () => {
     let resolveCurrent: (value: typeof notFoundResponse) => void = () => {};
     mockedApiService.getCurrentSmartTargetingTestSamplingCalculation.mockImplementation(
@@ -268,7 +372,7 @@ describe('SmartTargetingTestSamplingPreview', () => {
       screen.queryByRole('button', { name: copy.checkAvailability })
     ).toBeNull();
     expect(screen.getByTestId('smart-targeting-sampling-spinner')).toBeTruthy();
-    expect(screen.getByText(copy.calculationInProgress)).toBeTruthy();
+    expect(screen.getByText(copy.calculationQueued)).toBeTruthy();
 
     await act(async () => {
       jestGlobals.advanceTimersByTime(10_000);
@@ -432,7 +536,7 @@ describe('SmartTargetingTestSamplingPreview', () => {
     ).toBeNull();
   });
 
-  it('keeps refreshing the current status while the Budget step is open', async () => {
+  it('stops polling after a current calculation has completed', async () => {
     jestGlobals.useFakeTimers();
     mockedApiService.getCurrentSmartTargetingTestSamplingCalculation.mockResolvedValue(
       {
@@ -459,7 +563,7 @@ describe('SmartTargetingTestSamplingPreview', () => {
 
     expect(
       mockedApiService.getCurrentSmartTargetingTestSamplingCalculation
-    ).toHaveBeenCalledTimes(2);
+    ).toHaveBeenCalledTimes(1);
     expect(
       (
         screen.getByRole('button', {

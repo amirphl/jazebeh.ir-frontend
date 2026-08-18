@@ -68,6 +68,7 @@ export interface SmartTargetingTestPreviewCopy extends SmartTargetingScoreClassC
   previewFailed: string;
   loadingCurrent: string;
   calculationInProgress: string;
+  calculationQueued: string;
   calculationFailed: string;
   calculationStale: string;
   fetchError: string;
@@ -91,6 +92,18 @@ interface SamplingJob {
   inputKey: string;
   calculation: SmartTargetingTestSamplingCalculationResponse;
 }
+
+const isNotCalculatedResponse = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const status = (value as Record<string, unknown>).status;
+  return (
+    typeof status === 'string' &&
+    status
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_') === 'not_calculated'
+  );
+};
 
 const EMPTY_CALCULATION_CODES = new Set([
   'NOT_FOUND',
@@ -124,6 +137,7 @@ interface SmartTargetingTestSamplingPreviewProps {
   preview?: SmartTargetingTestSamplingPreviewResponse | null;
   previewIsCurrent: boolean;
   previewIsStale: boolean;
+  configurationIsDirty: boolean;
   selectionOrderIsPending: boolean;
   prepareCampaign: (signal?: AbortSignal) => Promise<{
     success: boolean;
@@ -157,6 +171,7 @@ const SmartTargetingTestSamplingPreview: React.FC<
   preview,
   previewIsCurrent,
   previewIsStale,
+  configurationIsDirty,
   selectionOrderIsPending,
   prepareCampaign,
   onConfigurationPersisted,
@@ -172,8 +187,16 @@ const SmartTargetingTestSamplingPreview: React.FC<
   const [isLoadingCurrent, setIsLoadingCurrent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestSequenceRef = useRef(0);
+  // A calculation can be requested from the initial/current-status GET as
+  // well as from the button. Keep this guard in memory so a stale response
+  // cannot create more than one job for the same mounted form.
   const requestInFlightRef = useRef(false);
+  const autoStartAttemptedInputKeyRef = useRef<string | null>(null);
+  const autoPersistAttemptedInputKeyRef = useRef<string | null>(null);
+  const hasLoadedCurrentCalculationRef = useRef(false);
+  const handlePreviewRef = useRef<(() => Promise<void>) | null>(null);
   const actionAbortRef = useRef<AbortController | null>(null);
+  const autoStartAbortRef = useRef<AbortController | null>(null);
   const currentLookupAbortRef = useRef<AbortController | null>(null);
   const campaignUuidRef = useRef(campaignUuid?.trim() || '');
   const observedCampaignUuidRef = useRef(campaignUuid?.trim() || '');
@@ -194,10 +217,12 @@ const SmartTargetingTestSamplingPreview: React.FC<
   const orderedTagIdsRef = useRef(orderedTagIds);
   const sampleSizePerTagRef = useRef(sampleSizePerTag);
   const selectedScoreClassesRef = useRef(selectedScoreClasses);
+  const configurationIsDirtyRef = useRef(configurationIsDirty);
   inputKeyRef.current = inputKey;
   orderedTagIdsRef.current = orderedTagIds;
   sampleSizePerTagRef.current = sampleSizePerTag;
   selectedScoreClassesRef.current = selectedScoreClasses;
+  configurationIsDirtyRef.current = configurationIsDirty;
 
   const sampleSizeIsValid =
     Number.isSafeInteger(sampleSizePerTag) && sampleSizePerTag > 0;
@@ -225,9 +250,12 @@ const SmartTargetingTestSamplingPreview: React.FC<
     requestSequenceRef.current += 1;
     actionAbortRef.current?.abort();
     actionAbortRef.current = null;
+    autoStartAbortRef.current?.abort();
+    autoStartAbortRef.current = null;
     currentLookupAbortRef.current?.abort();
     currentLookupAbortRef.current = null;
     requestInFlightRef.current = false;
+    hasLoadedCurrentCalculationRef.current = false;
     setJob(null);
     setIsSubmitting(false);
     setIsLoadingCurrent(false);
@@ -304,6 +332,112 @@ const SmartTargetingTestSamplingPreview: React.FC<
     ]
   );
 
+  const shouldStartCalculation = useCallback(
+    (calculation: SmartTargetingTestSamplingCalculationResponse): boolean =>
+      !isSmartTargetingTestSamplingActive(calculation) &&
+      (isSmartTargetingTestSamplingStale(calculation) ||
+        calculation.status === 'not_calculated'),
+    []
+  );
+
+  const startCurrentCalculation = useCallback(
+    async (uuid: string, requestedInputKey: string) => {
+      if (
+        requestInFlightRef.current ||
+        autoStartAttemptedInputKeyRef.current === requestedInputKey ||
+        inputKeyRef.current !== requestedInputKey ||
+        campaignUuidRef.current !== uuid ||
+        orderedTagIdsRef.current.length === 0 ||
+        !Number.isSafeInteger(sampleSizePerTagRef.current) ||
+        sampleSizePerTagRef.current <= 0
+      ) {
+        return;
+      }
+
+      autoStartAttemptedInputKeyRef.current = requestedInputKey;
+      requestInFlightRef.current = true;
+      const startSequence = requestSequenceRef.current;
+      const controller = new AbortController();
+      autoStartAbortRef.current?.abort();
+      autoStartAbortRef.current = controller;
+      setIsSubmitting(true);
+      setError(null);
+
+      try {
+        const response =
+          await apiService.startSmartTargetingTestSamplingCalculation(
+            uuid,
+            controller.signal
+          );
+        if (
+          controller.signal.aborted ||
+          requestSequenceRef.current !== startSequence ||
+          inputKeyRef.current !== requestedInputKey ||
+          campaignUuidRef.current !== uuid
+        ) {
+          return;
+        }
+
+        let normalized = normalizeSmartTargetingTestSamplingCalculation(
+          response.success ? response.data : response.error?.details
+        );
+        if (
+          !normalized &&
+          AMBIGUOUS_START_ERRORS.has(response.error?.code || '')
+        ) {
+          const currentResponse =
+            await apiService.getCurrentSmartTargetingTestSamplingCalculation(
+              uuid,
+              controller.signal
+            );
+          if (
+            controller.signal.aborted ||
+            requestSequenceRef.current !== startSequence ||
+            inputKeyRef.current !== requestedInputKey ||
+            campaignUuidRef.current !== uuid
+          ) {
+            return;
+          }
+          normalized = normalizeSmartTargetingTestSamplingCalculation(
+            currentResponse.success ? currentResponse.data : undefined
+          );
+        }
+
+        if (!normalized) {
+          setError(
+            getErrorMessage(response.error?.code, language, copy.startError)
+          );
+          return;
+        }
+        if (!adoptCalculation(normalized, uuid, requestedInputKey)) {
+          setError(copy.inputsChangedDuringRequest);
+        }
+      } catch {
+        if (
+          inputKeyRef.current === requestedInputKey &&
+          campaignUuidRef.current === uuid &&
+          requestSequenceRef.current === startSequence
+        ) {
+          setError(copy.startError);
+        }
+      } finally {
+        if (requestSequenceRef.current === startSequence) {
+          requestInFlightRef.current = false;
+          setIsSubmitting(false);
+        }
+        if (autoStartAbortRef.current === controller) {
+          autoStartAbortRef.current = null;
+        }
+      }
+    },
+    [
+      adoptCalculation,
+      copy.inputsChangedDuringRequest,
+      copy.startError,
+      language,
+    ]
+  );
+
   useEffect(() => {
     const uuid = campaignUuid?.trim() || '';
     const previousUuid = observedCampaignUuidRef.current;
@@ -315,9 +449,13 @@ const SmartTargetingTestSamplingPreview: React.FC<
     if (requestInFlightRef.current) {
       actionAbortRef.current?.abort();
       actionAbortRef.current = null;
+      autoStartAbortRef.current?.abort();
+      autoStartAbortRef.current = null;
       requestInFlightRef.current = false;
       setIsSubmitting(false);
     }
+    autoStartAttemptedInputKeyRef.current = null;
+    autoPersistAttemptedInputKeyRef.current = null;
 
     const sequence = requestSequenceRef.current + 1;
     requestSequenceRef.current = sequence;
@@ -331,6 +469,7 @@ const SmartTargetingTestSamplingPreview: React.FC<
     }
 
     const requestedInputKey = inputKeyRef.current;
+    const isFirstCurrentLookup = !hasLoadedCurrentCalculationRef.current;
     const controller = new AbortController();
     currentLookupAbortRef.current = controller;
     setIsLoadingCurrent(true);
@@ -355,6 +494,18 @@ const SmartTargetingTestSamplingPreview: React.FC<
           return;
         }
 
+        if (isNotCalculatedResponse(response.data)) {
+          if (configurationIsDirtyRef.current) {
+            if (autoPersistAttemptedInputKeyRef.current !== requestedInputKey) {
+              autoPersistAttemptedInputKeyRef.current = requestedInputKey;
+              void handlePreviewRef.current?.();
+            }
+          } else {
+            void startCurrentCalculation(uuid, requestedInputKey);
+          }
+          return;
+        }
+
         const normalized = normalizeSmartTargetingTestSamplingCalculation(
           response.data
         );
@@ -368,6 +519,17 @@ const SmartTargetingTestSamplingPreview: React.FC<
         // Ignore it instead of presenting it as a response-validation error.
         if (!adoptCalculation(normalized, uuid, requestedInputKey)) {
           invalidateStoredPreview();
+          if (autoPersistAttemptedInputKeyRef.current !== requestedInputKey) {
+            autoPersistAttemptedInputKeyRef.current = requestedInputKey;
+            void handlePreviewRef.current?.();
+          }
+        } else if (
+          (shouldStartCalculation(normalized) ||
+            (isFirstCurrentLookup &&
+              isSmartTargetingTestSamplingFailed(normalized))) &&
+          !configurationIsDirtyRef.current
+        ) {
+          void startCurrentCalculation(uuid, requestedInputKey);
         }
       })
       .catch(() => {
@@ -384,6 +546,7 @@ const SmartTargetingTestSamplingPreview: React.FC<
           currentLookupAbortRef.current = null;
         }
         if (requestSequenceRef.current === sequence) {
+          hasLoadedCurrentCalculationRef.current = true;
           setIsLoadingCurrent(false);
         }
       });
@@ -397,6 +560,8 @@ const SmartTargetingTestSamplingPreview: React.FC<
     inputKey,
     invalidateStoredPreview,
     language,
+    shouldStartCalculation,
+    startCurrentCalculation,
   ]);
 
   useEffect(() => {
@@ -466,6 +631,12 @@ const SmartTargetingTestSamplingPreview: React.FC<
         return;
       }
 
+      if (isNotCalculatedResponse(response.data)) {
+        setJob(null);
+        void startCurrentCalculation(jobUuid, jobInputKey);
+        return;
+      }
+
       const normalized = normalizeSmartTargetingTestSamplingCalculation(
         response.data
       );
@@ -483,6 +654,8 @@ const SmartTargetingTestSamplingPreview: React.FC<
       retryCount = 0;
       if (isSmartTargetingTestSamplingActive(normalized)) {
         schedule(SMART_TARGETING_TEST_SAMPLING_POLL_INTERVAL_MS);
+      } else if (shouldStartCalculation(normalized)) {
+        void startCurrentCalculation(jobUuid, jobInputKey);
       }
     };
 
@@ -500,93 +673,16 @@ const SmartTargetingTestSamplingPreview: React.FC<
     invalidateStoredPreview,
     job,
     language,
+    shouldStartCalculation,
+    startCurrentCalculation,
   ]);
-
-  // Keep the Budget step synchronized with the server even after a terminal
-  // result. This also detects a calculation that is started elsewhere. Active
-  // calculations use the effect above, which polls the same endpoint until
-  // their status is no longer `calculating`.
-  useEffect(() => {
-    const uuid = campaignUuid?.trim();
-    if (!uuid || isSmartTargetingTestSamplingActive(job?.calculation)) return;
-
-    const sequence = requestSequenceRef.current;
-    const jobInputKey = inputKeyRef.current;
-    let stopped = false;
-    let timerId: number | undefined;
-
-    const schedule = () => {
-      if (stopped) return;
-      timerId = window.setTimeout(
-        () => void refreshCurrent(),
-        SMART_TARGETING_TEST_SAMPLING_POLL_INTERVAL_MS
-      );
-    };
-
-    const refreshCurrent = async () => {
-      if (stopped || requestSequenceRef.current !== sequence) return;
-      if (requestInFlightRef.current || currentLookupAbortRef.current) {
-        schedule();
-        return;
-      }
-
-      const controller = new AbortController();
-      currentLookupAbortRef.current = controller;
-      let response;
-      try {
-        response =
-          await apiService.getCurrentSmartTargetingTestSamplingCalculation(
-            uuid,
-            controller.signal
-          );
-      } catch {
-        response = null;
-      }
-      if (currentLookupAbortRef.current === controller) {
-        currentLookupAbortRef.current = null;
-      }
-      if (
-        stopped ||
-        controller.signal.aborted ||
-        requestSequenceRef.current !== sequence ||
-        inputKeyRef.current !== jobInputKey
-      ) {
-        return;
-      }
-
-      if (!response?.success || !response.data) {
-        if (EMPTY_CALCULATION_CODES.has(response?.error?.code || '')) {
-          setJob(null);
-        }
-        schedule();
-        return;
-      }
-
-      const normalized = normalizeSmartTargetingTestSamplingCalculation(
-        response.data
-      );
-      if (normalized) {
-        adoptCalculation(normalized, uuid, jobInputKey);
-      }
-      schedule();
-    };
-
-    schedule();
-    return () => {
-      stopped = true;
-      if (timerId !== undefined) window.clearTimeout(timerId);
-      if (currentLookupAbortRef.current) {
-        currentLookupAbortRef.current.abort();
-        currentLookupAbortRef.current = null;
-      }
-    };
-  }, [adoptCalculation, campaignUuid, job]);
 
   useEffect(
     () => () => {
       requestSequenceRef.current += 1;
       requestInFlightRef.current = false;
       actionAbortRef.current?.abort();
+      autoStartAbortRef.current?.abort();
       currentLookupAbortRef.current?.abort();
     },
     []
@@ -791,11 +887,38 @@ const SmartTargetingTestSamplingPreview: React.FC<
       if (actionAbortRef.current === controller) actionAbortRef.current = null;
     }
   };
+  handlePreviewRef.current = handlePreview;
+
+  // Tag and score-class changes are held in Campaign state until this step is
+  // reached. Persist that complete configuration once, then request sampling;
+  // this is deliberately separate from safe GET polling.
+  useEffect(() => {
+    if (
+      !configurationIsDirty ||
+      isLoadingCurrent ||
+      selectionOrderIsPending ||
+      requestInFlightRef.current ||
+      autoPersistAttemptedInputKeyRef.current === inputKey
+    ) {
+      return;
+    }
+    autoPersistAttemptedInputKeyRef.current = inputKey;
+    void handlePreviewRef.current?.();
+  }, [
+    configurationIsDirty,
+    inputKey,
+    isLoadingCurrent,
+    selectionOrderIsPending,
+  ]);
 
   const hasActiveCalculation = isSmartTargetingTestSamplingActive(
     job?.calculation
   );
   const isCalculating = isSubmitting || hasActiveCalculation;
+  const isQueued =
+    hasActiveCalculation &&
+    (job?.calculation.started_at === undefined ||
+      job.calculation.started_at === null);
 
   const formatNumber = (value: number) => value.toLocaleString(locale);
   const displayTagName = (item: SmartTargetingTestSamplingTagResult) =>
@@ -846,7 +969,9 @@ const SmartTargetingTestSamplingPreview: React.FC<
           {isLoadingCurrent
             ? copy.loadingCurrent
             : isCalculating
-              ? copy.calculationInProgress
+              ? isQueued
+                ? copy.calculationQueued
+                : copy.calculationInProgress
               : selectionOrderIsPending
                 ? copy.selectionOrderPending
                 : previewIsStale

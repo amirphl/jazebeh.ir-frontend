@@ -174,6 +174,7 @@ const createDefaultCampaignData = (): CampaignData => ({
     smartTargetingSelectionDirty: false,
     smartTargetingScoreClasses: [],
     smartTargetingScoreClassesDirty: false,
+    smartTargetingTestSamplingInputsDirty: false,
     smartTargetingCapacityCalculation: null,
     smartTargetingExactCapacityRequired: false,
     smartTargetingSortBy: '',
@@ -295,6 +296,8 @@ const normalizeStoredCampaignData = (value: unknown): CampaignData => {
         typeof storedSegment.smartTargetingScoreClassesDirty === 'boolean'
           ? storedSegment.smartTargetingScoreClassesDirty
           : false,
+      smartTargetingTestSamplingInputsDirty:
+        storedSegment.smartTargetingTestSamplingInputsDirty === true,
       smartTargetingCapacityCalculation:
         normalizeSmartTargetingCapacityCalculation(
           storedSegment.smartTargetingCapacityCalculation

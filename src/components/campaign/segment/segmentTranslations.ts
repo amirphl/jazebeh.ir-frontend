@@ -275,6 +275,8 @@ const campaignLevelEn = {
       previewFailed:
         'Test sample availability could not be checked. Please try again.',
       loadingCurrent: 'Loading the latest Test sampling calculation...',
+      calculationQueued:
+        'Test sample availability is queued and will start shortly.',
       calculationInProgress:
         'Test sample availability is being calculated. Status updates are automatic.',
       calculationFailed:
@@ -620,6 +622,8 @@ const campaignLevelFa = {
       previewFailed:
         'بررسی موجودی نمونه تست ناموفق بود. لطفاً دوباره تلاش کنید.',
       loadingCurrent: 'در حال بارگذاری آخرین محاسبه نمونه تست...',
+      calculationQueued:
+        'بررسی موجودی نمونه تست در صف است و به‌زودی شروع می‌شود.',
       calculationInProgress:
         'موجودی نمونه تست در حال محاسبه است. وضعیت به‌صورت خودکار به‌روزرسانی می‌شود.',
       calculationFailed:

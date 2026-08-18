@@ -55,6 +55,7 @@ import {
 import { serializeCampaignPayload } from '../../../utils/campaignUtils';
 import { useCampaignValidation } from '../../../hooks/useCampaignValidation';
 import { isCurrentUsableSmartTargetingCapacity } from '../../../utils/smartTargetingCapacity';
+import { useSmartTargetingTestSamplingSync } from './useSmartTargetingTestSamplingSync';
 
 const isAudienceTargetingMethod = (
   value: unknown
@@ -94,6 +95,10 @@ const LevelStep: React.FC = () => {
   const { showError } = useToast();
   const { uploadMedia, isUploading } = useMediaUpload(accessToken);
   const showErrorRef = useRef(showError);
+  const reportSamplingError = useCallback(
+    (message: string) => showErrorRef.current(message),
+    []
+  );
   const categories = getJobCategories(language);
   const isAgency = user?.account_type === 'marketing_agency';
   const campaignValidation = useCampaignValidation(campaignData, 1, isAgency);
@@ -802,6 +807,7 @@ const LevelStep: React.FC = () => {
             smartTargetingSelectionDirty: false,
             smartTargetingScoreClasses: [],
             smartTargetingScoreClassesDirty: false,
+            smartTargetingTestSamplingInputsDirty: false,
             smartTargetingCapacityCalculation: null,
             smartTargetingExactCapacityRequired: false,
             smartTargetingSortBy: '',
@@ -874,6 +880,7 @@ const LevelStep: React.FC = () => {
       selectedTagIds: tagIds,
       smartTargetingSelectedRawCapacity: selectedRawCapacity,
       smartTargetingSelectionDirty: source === 'local',
+      smartTargetingTestSamplingInputsDirty: source === 'local',
       smartTargetingSelectionOrderPending:
         campaignDataRef.current.segment.phase === 'test' && tagIds.length > 1,
       capacity: undefined,
@@ -1025,10 +1032,19 @@ const LevelStep: React.FC = () => {
       updateLevel({
         smartTargetingScoreClasses: scoreClasses,
         smartTargetingScoreClassesDirty: nextDirty,
+        smartTargetingTestSamplingInputsDirty: nextDirty,
       });
     },
     [updateLevel]
   );
+
+  useSmartTargetingTestSamplingSync({
+    campaignData,
+    accessToken,
+    enabled: isSmartTargetingTest && canUseCampaignSmartTargetingApis,
+    updateLevel,
+    showError: reportSamplingError,
+  });
 
   const handleSmartTargetingCalculationChange = useCallback(
     (calculation: SmartTargetingCapacityCalculationResponse | null) => {
@@ -1289,6 +1305,7 @@ const LevelStep: React.FC = () => {
       smartTargetingSelectionDirty: false,
       smartTargetingScoreClasses: [],
       smartTargetingScoreClassesDirty: false,
+      smartTargetingTestSamplingInputsDirty: false,
       smartTargetingCapacityCalculation: null,
       smartTargetingExactCapacityRequired: false,
       smartTargetingSortBy: '',
@@ -1492,7 +1509,10 @@ const LevelStep: React.FC = () => {
                   campaignData.segment.smartTargetingScoreClasses || []
                 }
                 onSampleSizeChange={value =>
-                  updateLevel({ sampleSizePerTag: value })
+                  updateLevel({
+                    sampleSizePerTag: value,
+                    smartTargetingTestSamplingInputsDirty: true,
+                  })
                 }
                 onScoreClassesChange={value =>
                   handleSmartTargetingScoreClassesChange(value, 'local')

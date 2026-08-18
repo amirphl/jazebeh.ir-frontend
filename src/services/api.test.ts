@@ -125,6 +125,29 @@ describe('campaign creation API safety', () => {
     expect(AbortSignal.timeout).toHaveBeenCalledWith(30000);
   });
 
+  it('allows an empty Smart Targeting selection to be saved', async () => {
+    const fetchMock = jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: {} }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+    await apiService.replaceCampaignSmartTargetingSelection('campaign-uuid', {
+      tag_ids: [],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/campaigns/campaign-uuid/smart-targeting/selection'
+      ),
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({ tag_ids: [] }),
+      })
+    );
+  });
+
   it('validates sampling calculation IDs before polling', async () => {
     const fetchMock = jestGlobals.spyOn(globalThis, 'fetch');
 
