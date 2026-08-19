@@ -5,7 +5,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { RefreshCw, Search } from 'lucide-react';
+import { PackageCheck, RefreshCw, Search } from 'lucide-react';
 import Button from '../../ui/Button';
 import { apiService } from '../../../services/api';
 import { useLanguage } from '../../../hooks/useLanguage';
@@ -39,6 +39,7 @@ export interface SmartTargetingCopy {
   descending: string;
   columns: {
     selection: string;
+    usedInBundle: string;
     tagDisplayTitle: string;
     tagCapacity: string;
     bundlePersonaFitScore: string;
@@ -71,6 +72,7 @@ export interface SmartTargetingCopy {
   fetchError: string;
   autoSelectError: string;
   unavailable: string;
+  usedInBundleTooltip: string;
   pagination: {
     showing: string;
     rowsPerPage: string;
@@ -178,6 +180,7 @@ const normalizeRows = (items: unknown): SmartTargetingTagItem[] => {
           typeof row.tag_display_title === 'string'
             ? row.tag_display_title
             : null,
+        used_in_bundle: row.used_in_bundle === true,
         tag_capacity: normalizeFiniteNumber(row.tag_capacity),
         bundle_persona_fit_score: normalizeFiniteNumber(
           row.bundle_persona_fit_score
@@ -1193,17 +1196,21 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
             <thead className='sticky top-0 z-10 bg-gray-50'>
               <tr>
                 {[
-                  copy.columns.selection,
-                  copy.columns.tagDisplayTitle,
-                  copy.columns.tagCapacity,
-                  copy.columns.bundlePersonaFitScore,
-                  copy.columns.testPhaseAvgCtr,
-                  copy.columns.overallAvgCtr,
-                ].map(label => (
+                  { label: copy.columns.selection },
+                  {
+                    label: copy.columns.usedInBundle,
+                    className: 'w-16 text-center',
+                  },
+                  { label: copy.columns.tagDisplayTitle },
+                  { label: copy.columns.tagCapacity },
+                  { label: copy.columns.bundlePersonaFitScore },
+                  { label: copy.columns.testPhaseAvgCtr },
+                  { label: copy.columns.overallAvgCtr },
+                ].map(({ label, className }) => (
                   <th
                     key={label}
                     scope='col'
-                    className='px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-gray-500'
+                    className={`px-4 py-3 text-start text-xs font-semibold uppercase tracking-wide text-gray-500 ${className ?? ''}`}
                   >
                     {label}
                   </th>
@@ -1230,6 +1237,20 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
                         aria-label={row.tag_display_title || String(row.tag_id)}
                         className='h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50'
                       />
+                    </td>
+                    <td className='w-16 px-4 py-4 text-center align-top'>
+                      {row.used_in_bundle ? (
+                        <span
+                          aria-label={copy.usedInBundleTooltip}
+                          title={copy.usedInBundleTooltip}
+                          className='inline-flex text-green-600'
+                        >
+                          <PackageCheck
+                            className='h-4 w-4'
+                            aria-hidden='true'
+                          />
+                        </span>
+                      ) : null}
                     </td>
                     <td className='max-w-sm px-4 py-4 align-top'>
                       <p className='font-medium text-gray-900'>
