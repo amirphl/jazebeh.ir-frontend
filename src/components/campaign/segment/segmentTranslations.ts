@@ -137,6 +137,7 @@ const campaignLevelEn = {
     descending: 'Descending',
     columns: {
       selection: 'Selection',
+      usedInBundle: 'In bundle',
       tagDisplayTitle: 'Tag Display Title',
       tagCapacity: 'Tag Capacity',
       bundlePersonaFitScore: 'Bundle Persona Fit Score',
@@ -173,6 +174,7 @@ const campaignLevelEn = {
     autoSelectError:
       'Failed to automatically select Smart Targeting tags. Please try again.',
     unavailable: '—',
+    usedInBundleTooltip: 'Used in bundle',
     pagination: {
       showing: 'Showing {from} to {to} of {total} tags',
       rowsPerPage: 'Rows per page',
@@ -485,6 +487,7 @@ const campaignLevelFa = {
     descending: 'نزولی',
     columns: {
       selection: 'انتخاب',
+      usedInBundle: 'در بسته',
       tagDisplayTitle: 'عنوان نمایشی برچسب',
       tagCapacity: 'ظرفیت برچسب',
       bundlePersonaFitScore: 'امتیاز تناسب پرسونای کمپین',
@@ -522,6 +525,7 @@ const campaignLevelFa = {
     autoSelectError:
       'انتخاب خودکار برچسب‌های هدف‌گیری هوشمند ناموفق بود. لطفاً دوباره تلاش کنید.',
     unavailable: '—',
+    usedInBundleTooltip: 'در این بسته استفاده شده است',
     pagination: {
       showing: 'نمایش {from} تا {to} از {total} برچسب',
       rowsPerPage: 'ردیف در صفحه',
