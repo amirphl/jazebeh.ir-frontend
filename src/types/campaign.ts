@@ -368,6 +368,7 @@ export interface PaginationInfo {
 export interface SmartTargetingTagItem {
   tag_id: number;
   tag_display_title: string | null;
+  used_in_bundle: boolean;
   tag_capacity: number | null;
   bundle_persona_fit_score: number | null;
   evaluation_run_id: number | null;
