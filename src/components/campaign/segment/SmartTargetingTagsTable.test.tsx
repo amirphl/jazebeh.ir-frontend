@@ -40,9 +40,15 @@ const mockedApiService = apiService as Mocked<typeof apiService>;
   globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-const tag = (id: number, title: string, capacity: number) => ({
+const tag = (
+  id: number,
+  title: string,
+  capacity: number,
+  usedInBundle = false
+) => ({
   tag_id: id,
   tag_display_title: title,
+  used_in_bundle: usedInBundle,
   tag_capacity: capacity,
   bundle_persona_fit_score: null,
   evaluation_run_id: null,
@@ -156,6 +162,54 @@ const SelectionHarness: React.FC<{
 describe('SmartTargetingTagsTable', () => {
   beforeEach(() => {
     jestGlobals.clearAllMocks();
+  });
+
+  it('marks tags that are used in the bundle with an accessible package icon', async () => {
+    mockedApiService.listBundleSmartTargetingTags.mockResolvedValue(
+      response(
+        [tag(1, 'Bundle tag', 10, true), tag(2, 'Other tag', 20)],
+        1,
+        2,
+        1
+      ) as any
+    );
+
+    render(<SelectionHarness />);
+
+    const headers = await screen.findAllByRole('columnheader');
+    expect(headers.map(header => header.textContent)).toEqual([
+      copy.columns.selection,
+      copy.columns.usedInBundle,
+      copy.columns.tagDisplayTitle,
+      copy.columns.tagCapacity,
+      copy.columns.bundlePersonaFitScore,
+      copy.columns.testPhaseAvgCtr,
+      copy.columns.overallAvgCtr,
+    ]);
+
+    const indicator = screen.getByLabelText(copy.usedInBundleTooltip);
+    expect(indicator.getAttribute('title')).toBe(copy.usedInBundleTooltip);
+    expect(indicator.querySelector('svg')).toBeTruthy();
+  });
+
+  it('hides the bundle indicator for false, missing, or malformed values', async () => {
+    mockedApiService.listBundleSmartTargetingTags.mockResolvedValue(
+      response(
+        [
+          tag(1, 'Not used', 10),
+          { ...tag(2, 'Missing flag', 20), used_in_bundle: undefined },
+          { ...tag(3, 'Malformed flag', 30), used_in_bundle: 'true' },
+        ] as any,
+        1,
+        3,
+        1
+      ) as any
+    );
+
+    render(<SelectionHarness />);
+
+    await screen.findByRole('checkbox', { name: 'Not used' });
+    expect(screen.queryByLabelText(copy.usedInBundleTooltip)).toBeNull();
   });
 
   it('keeps manual selections when pagination changes', async () => {
