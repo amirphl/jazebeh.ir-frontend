@@ -142,6 +142,14 @@ export type UnauthorizedHandler = () => void;
 
 interface ApiRequestOptions extends RequestInit {
   timeoutMs?: number;
+  expectedContentType?: string;
+}
+
+export interface BinaryApiResponse {
+  success: boolean;
+  message: string;
+  blob?: Blob;
+  filename?: string;
 }
 
 class ApiService {
@@ -420,7 +428,10 @@ class ApiService {
         data: data.data,
       };
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (
+        error instanceof DOMException &&
+        (error.name === 'AbortError' || error.name === 'TimeoutError')
+      ) {
         return this.createErrorResponse('TIMEOUT_ERROR');
       }
 
@@ -469,19 +480,21 @@ class ApiService {
   private async requestBinary(
     endpoint: string,
     options: ApiRequestOptions = {}
-  ): Promise<{
-    success: boolean;
-    message: string;
-    blob?: Blob;
-    filename?: string;
-  }> {
+  ): Promise<BinaryApiResponse> {
     const url = getApiUrl(endpoint);
     if (!this.isValidUrl(url)) {
       return { success: false, message: 'INVALID_URL' };
     }
 
+    const {
+      expectedContentType,
+      timeoutMs,
+      signal: callerSignal,
+      ...requestOptions
+    } = options;
+
     const headers: Record<string, string> = {
-      Accept: '*/*',
+      Accept: expectedContentType || '*/*',
       'X-Requested-With': 'XMLHttpRequest',
     };
     const accessToken = this.getAccessToken();
@@ -491,18 +504,15 @@ class ApiService {
 
     try {
       const response = await fetch(url, {
-        ...options,
-        method: options.method ?? 'GET',
+        ...requestOptions,
+        method: requestOptions.method ?? 'GET',
         headers: {
-          ...(options.headers
-            ? Object.fromEntries(new Headers(options.headers))
+          ...(requestOptions.headers
+            ? Object.fromEntries(new Headers(requestOptions.headers))
             : undefined),
           ...headers,
         },
-        signal: this.createTimeoutSignal(
-          options.timeoutMs ?? 30000,
-          options.signal
-        ),
+        signal: this.createTimeoutSignal(timeoutMs ?? 30000, callerSignal),
       });
 
       if (response.status === 401) {
@@ -523,6 +533,14 @@ class ApiService {
         return { success: false, message: normalized.code };
       }
 
+      const contentType = response.headers.get('content-type') || '';
+      if (
+        expectedContentType &&
+        !contentType.toLowerCase().includes(expectedContentType.toLowerCase())
+      ) {
+        return { success: false, message: 'INVALID_RESPONSE' };
+      }
+
       const blob = await response.blob();
       const disposition = response.headers.get('content-disposition') || '';
       const filenameMatch = disposition.match(/filename=([^;]+)/i);
@@ -531,7 +549,10 @@ class ApiService {
         : undefined;
       return { success: true, message: 'Success', blob, filename };
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (
+        error instanceof DOMException &&
+        (error.name === 'AbortError' || error.name === 'TimeoutError')
+      ) {
         return { success: false, message: 'TIMEOUT_ERROR' };
       }
       if (error instanceof TypeError) {
@@ -1465,6 +1486,33 @@ class ApiService {
     const endpoint = `/campaigns/${encodeURIComponent(uuid)}/click-report`;
     return this.requestBinary(endpoint, {
       timeoutMs: 60000,
+    });
+  }
+
+  async exportCampaignAudienceClickReport(
+    campaignIds: number[]
+  ): Promise<BinaryApiResponse> {
+    const normalizedCampaignIds = Array.from(
+      new Set(
+        (Array.isArray(campaignIds) ? campaignIds : []).filter(
+          id => Number.isInteger(id) && Number.isFinite(id) && id > 0
+        )
+      )
+    );
+
+    if (normalizedCampaignIds.length === 0) {
+      return { success: false, message: 'CAMPAIGN_IDS_REQUIRED' };
+    }
+
+    return this.requestBinary('/campaigns/audience-click-report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ campaign_ids: normalizedCampaignIds }),
+      timeoutMs: 130000,
+      expectedContentType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     });
   }
 
