@@ -56,6 +56,7 @@ interface CampaignsTableProps {
   truncateText: (text: string, max?: number) => string;
   bulkHideMode: boolean;
   bulkUnhideMode: boolean;
+  bulkClickReportMode: boolean;
   selectedCampaignIds: number[];
   onToggleCampaignSelection: (campaignId: number, selected: boolean) => void;
 }
@@ -69,13 +70,17 @@ const CampaignsTable: React.FC<CampaignsTableProps> = ({
   truncateText,
   bulkHideMode,
   bulkUnhideMode,
+  bulkClickReportMode,
   selectedCampaignIds,
   onToggleCampaignSelection,
 }) => {
-  const bulkSelectionMode = bulkHideMode || bulkUnhideMode;
-  const selectionColumnLabel = bulkUnhideMode
-    ? copy.bulkUnhide.selectionColumn
-    : copy.bulkHide.selectionColumn;
+  const bulkSelectionMode =
+    bulkHideMode || bulkUnhideMode || bulkClickReportMode;
+  const selectionColumnLabel = bulkClickReportMode
+    ? copy.bulkClickReport.selectionColumn
+    : bulkUnhideMode
+      ? copy.bulkUnhide.selectionColumn
+      : copy.bulkHide.selectionColumn;
   const statusLabel = (status: string) => copy.statuses[status] || status;
   const { cancelCampaign, cancelling, cancelled } = useCancelCampaign(copy);
   const { accessToken } = useAuth();
@@ -274,6 +279,7 @@ const CampaignsTable: React.FC<CampaignsTableProps> = ({
             <tbody className='divide-y divide-gray-200 bg-white'>
               {items.map(campaign => {
                 const audienceValue = getAudienceDisplayValue(campaign, copy);
+                const isClickReportEligible = Boolean(campaign.adlink?.trim());
 
                 return (
                   <tr key={campaign.uuid} className='hover:bg-gray-50'>
@@ -283,6 +289,9 @@ const CampaignsTable: React.FC<CampaignsTableProps> = ({
                           <input
                             type='checkbox'
                             checked={selectedCampaignIdSet.has(campaign.id)}
+                            disabled={
+                              bulkClickReportMode && !isClickReportEligible
+                            }
                             onChange={event =>
                               onToggleCampaignSelection(
                                 campaign.id as number,
@@ -290,7 +299,16 @@ const CampaignsTable: React.FC<CampaignsTableProps> = ({
                               )
                             }
                             className='h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500'
-                            aria-label={`${selectionColumnLabel} ${campaign.title || campaign.uuid}`}
+                            aria-label={
+                              bulkClickReportMode && !isClickReportEligible
+                                ? `${copy.bulkClickReport.ineligible} ${campaign.title || campaign.uuid}`
+                                : `${selectionColumnLabel} ${campaign.title || campaign.uuid}`
+                            }
+                            title={
+                              bulkClickReportMode && !isClickReportEligible
+                                ? copy.bulkClickReport.ineligible
+                                : undefined
+                            }
                           />
                         ) : (
                           '-'
