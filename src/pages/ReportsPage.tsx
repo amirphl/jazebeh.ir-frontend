@@ -16,8 +16,10 @@ import CampaignsTable from './reports/components/CampaignsTable';
 import ReportDetailsModal from './reports/components/ReportDetailsModal';
 import BulkHideActionBar from './reports/components/BulkHideActionBar';
 import BulkUnhideActionBar from './reports/components/BulkUnhideActionBar';
+import BulkClickReportActionBar from './reports/components/BulkClickReportActionBar';
 import { useHideCampaigns } from './reports/hooks/useHideCampaigns';
 import { useUnhideCampaigns } from './reports/hooks/useUnhideCampaigns';
+import { useCampaignAudienceClickReportExport } from './reports/hooks/useCampaignAudienceClickReportExport';
 import { getReportsCopy } from './reports/translations';
 import { useToast } from '../hooks/useToast';
 import { normalizeCampaignResponseToDraft } from '../utils/campaignCreationDraft';
@@ -57,8 +59,19 @@ const ReportsPage: React.FC = () => {
   const [endDateFilter, setEndDateFilter] = useState('');
   const [bulkHideMode, setBulkHideMode] = useState(false);
   const [bulkUnhideMode, setBulkUnhideMode] = useState(false);
+  const [bulkClickReportMode, setBulkClickReportMode] = useState(false);
   const [showHiddenCampaigns, setShowHiddenCampaigns] = useState(false);
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<number[]>([]);
+  const bulkClickReportFilterKey = [
+    bundleIdFilter,
+    campaignTitleFilter,
+    phaseFilter,
+    platformFilter,
+    startDateFilter,
+    endDateFilter,
+    showHiddenCampaigns,
+  ].join('|');
+  const bulkClickReportFilterKeyRef = useRef(bulkClickReportFilterKey);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -101,6 +114,11 @@ const ReportsPage: React.FC = () => {
         setBulkUnhideMode(false);
       },
     });
+
+  const {
+    exportClickReport: exportCampaignAudienceClickReport,
+    isExporting: isExportingCampaignAudienceClickReport,
+  } = useCampaignAudienceClickReportExport(copy);
 
   // Track previous filter values to skip stale-page fetch when filters reset pagination
   const prevFiltersRef = useRef({
@@ -320,10 +338,32 @@ const ReportsPage: React.FC = () => {
   );
 
   useEffect(() => {
-    if (!bulkHideMode && !bulkUnhideMode && selectedCampaignIds.length > 0) {
+    if (
+      !bulkHideMode &&
+      !bulkUnhideMode &&
+      !bulkClickReportMode &&
+      selectedCampaignIds.length > 0
+    ) {
       setSelectedCampaignIds([]);
     }
-  }, [bulkHideMode, bulkUnhideMode, selectedCampaignIds.length]);
+  }, [
+    bulkHideMode,
+    bulkUnhideMode,
+    bulkClickReportMode,
+    selectedCampaignIds.length,
+  ]);
+
+  useEffect(() => {
+    if (bulkClickReportFilterKeyRef.current === bulkClickReportFilterKey) {
+      return;
+    }
+
+    bulkClickReportFilterKeyRef.current = bulkClickReportFilterKey;
+    if (!bulkClickReportMode) return;
+
+    setBulkClickReportMode(false);
+    setSelectedCampaignIds([]);
+  }, [bulkClickReportFilterKey, bulkClickReportMode]);
 
   useEffect(() => {
     const visibleCampaignIds = new Set(
@@ -367,6 +407,13 @@ const ReportsPage: React.FC = () => {
 
       return prevSelectedIds.filter(id => id !== campaignId);
     });
+  };
+
+  const handleBulkClickReportModeChange = (enabled: boolean) => {
+    setBulkClickReportMode(enabled);
+    if (enabled) {
+      setSelectedCampaignIds([]);
+    }
   };
 
   const truncateText = (text: string, max = 30) => {
@@ -514,6 +561,8 @@ const ReportsPage: React.FC = () => {
           onBulkHideModeChange={setBulkHideMode}
           bulkUnhideMode={bulkUnhideMode}
           onBulkUnhideModeChange={setBulkUnhideMode}
+          bulkClickReportMode={bulkClickReportMode}
+          onBulkClickReportModeChange={handleBulkClickReportModeChange}
           showHiddenCampaigns={showHiddenCampaigns}
           onShowHiddenCampaignsChange={setShowHiddenCampaigns}
           accessToken={accessToken}
@@ -535,6 +584,7 @@ const ReportsPage: React.FC = () => {
           truncateText={truncateText}
           bulkHideMode={bulkHideMode}
           bulkUnhideMode={bulkUnhideMode}
+          bulkClickReportMode={bulkClickReportMode}
           selectedCampaignIds={selectedCampaignIds}
           onToggleCampaignSelection={handleToggleCampaignSelection}
         />
@@ -554,6 +604,17 @@ const ReportsPage: React.FC = () => {
             selectedCount={selectedCampaignIds.length}
             isSubmitting={isUnhidingCampaigns}
             onSubmit={() => unhideCampaigns(selectedCampaignIds)}
+          />
+        ) : null}
+
+        {bulkClickReportMode ? (
+          <BulkClickReportActionBar
+            copy={copy}
+            selectedCount={selectedCampaignIds.length}
+            isSubmitting={isExportingCampaignAudienceClickReport}
+            onSubmit={() =>
+              exportCampaignAudienceClickReport(selectedCampaignIds)
+            }
           />
         ) : null}
 
