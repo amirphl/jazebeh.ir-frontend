@@ -65,6 +65,28 @@ export interface ReportsTranslations {
       notFound: string;
     };
   };
+  bulkClickReport: {
+    modeToggle: string;
+    modeHint: string;
+    selectionColumn: string;
+    selectionCount: (count: number) => string;
+    button: string;
+    submitting: string;
+    success: string;
+    ineligible: string;
+    errors: {
+      emptySelection: string;
+      fallback: string;
+      unauthorized: string;
+      forbidden: string;
+      invalidSelection: string;
+      notFound: string;
+      tooLarge: string;
+      timeout: string;
+      network: string;
+      invalidResponse: string;
+    };
+  };
   showHiddenCampaigns: {
     toggle: string;
     hint: string;
@@ -289,6 +311,35 @@ export const reportsTranslations: Record<'en' | 'fa', ReportsTranslations> = {
         notFound: 'One or more campaigns were not found.',
       },
     },
+    bulkClickReport: {
+      modeToggle: 'Download click reports',
+      modeHint:
+        'Select campaigns with an ad link to download one combined report.',
+      selectionColumn: 'Select',
+      selectionCount: (count: number) =>
+        `${count} campaign${count === 1 ? '' : 's'} selected`,
+      button: 'Download click report',
+      submitting: 'Preparing click report...',
+      success: 'Click report download started.',
+      ineligible:
+        'A click report is available only for campaigns with an ad link.',
+      errors: {
+        emptySelection: 'Select at least one eligible campaign.',
+        fallback: "Failed to download the selected campaigns' click report.",
+        unauthorized: 'You are not authorized. Please log in again.',
+        forbidden: 'You do not have access to export these campaign reports.',
+        invalidSelection:
+          'The selected campaigns are invalid. Please select them again.',
+        notFound:
+          'A click report is not available for one or more selected campaigns.',
+        tooLarge: 'The selected click report is too large for one worksheet.',
+        timeout: 'The click report request timed out. Please try again.',
+        network:
+          'Network error while downloading the click report. Please check your connection and try again.',
+        invalidResponse:
+          'The server returned an invalid click report response.',
+      },
+    },
     showHiddenCampaigns: {
       toggle: 'Show hidden campaigns',
       hint: 'Display campaigns that have been hidden from your reports list.',
@@ -509,6 +560,33 @@ export const reportsTranslations: Record<'en' | 'fa', ReportsTranslations> = {
         fallback: 'بازیابی ارسال‌های انتخاب‌شده ناموفق بود.',
         unauthorized: 'احراز هویت ناموفق بود. لطفاً دوباره وارد شوید.',
         notFound: 'یک یا چند ارسال یافت نشد.',
+      },
+    },
+    bulkClickReport: {
+      modeToggle: 'دانلود گزارش کلیک',
+      modeHint:
+        'ارسال‌های دارای لینک ضمیمه‌شده را برای دریافت یک گزارش یکپارچه انتخاب کنید.',
+      selectionColumn: 'انتخاب',
+      selectionCount: (count: number) => `${count} ارسال انتخاب شده`,
+      button: 'دانلود گزارش کلیک',
+      submitting: 'در حال آماده‌سازی گزارش کلیک...',
+      success: 'دانلود گزارش کلیک آغاز شد.',
+      ineligible:
+        'گزارش کلیک فقط برای ارسال‌های دارای لینک ضمیمه‌شده در دسترس است.',
+      errors: {
+        emptySelection: 'حداقل یک ارسال دارای لینک را انتخاب کنید.',
+        fallback: 'دانلود گزارش کلیک ارسال‌های انتخاب‌شده ناموفق بود.',
+        unauthorized: 'احراز هویت ناموفق بود. لطفاً دوباره وارد شوید.',
+        forbidden: 'شما دسترسی لازم برای دریافت این گزارش‌ها را ندارید.',
+        invalidSelection:
+          'ارسال‌های انتخاب‌شده نامعتبر هستند. لطفاً دوباره انتخاب کنید.',
+        notFound: 'گزارش کلیک یک یا چند ارسال انتخاب‌شده در دسترس نیست.',
+        tooLarge: 'گزارش کلیک انتخاب‌شده برای یک کاربرگ بیش از حد بزرگ است.',
+        timeout:
+          'مهلت دریافت گزارش کلیک به پایان رسید. لطفاً دوباره تلاش کنید.',
+        network:
+          'هنگام دانلود گزارش کلیک خطای شبکه رخ داد. اتصال خود را بررسی کرده و دوباره تلاش کنید.',
+        invalidResponse: 'پاسخ سرور برای گزارش کلیک نامعتبر بود.',
       },
     },
     showHiddenCampaigns: {
