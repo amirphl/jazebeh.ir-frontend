@@ -36,6 +36,8 @@ interface FiltersBarProps {
   onBulkHideModeChange: (enabled: boolean) => void;
   bulkUnhideMode: boolean;
   onBulkUnhideModeChange: (enabled: boolean) => void;
+  bulkClickReportMode: boolean;
+  onBulkClickReportModeChange: (enabled: boolean) => void;
   showHiddenCampaigns: boolean;
   onShowHiddenCampaignsChange: (enabled: boolean) => void;
   accessToken: string | null;
@@ -62,6 +64,8 @@ const FiltersBar: React.FC<FiltersBarProps> = ({
   onBulkHideModeChange,
   bulkUnhideMode,
   onBulkUnhideModeChange,
+  bulkClickReportMode,
+  onBulkClickReportModeChange,
   showHiddenCampaigns,
   onShowHiddenCampaignsChange,
   accessToken,
@@ -269,7 +273,10 @@ const FiltersBar: React.FC<FiltersBarProps> = ({
             checked={bulkHideMode}
             onChange={e => {
               onBulkHideModeChange(e.target.checked);
-              if (e.target.checked) onBulkUnhideModeChange(false);
+              if (e.target.checked) {
+                onBulkUnhideModeChange(false);
+                onBulkClickReportModeChange(false);
+              }
             }}
             className='mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500'
           />
@@ -283,13 +290,41 @@ const FiltersBar: React.FC<FiltersBarProps> = ({
           </span>
         </label>
 
+        {bundleIdFilter !== null ? (
+          <label className='inline-flex flex-1 items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm'>
+            <input
+              type='checkbox'
+              checked={bulkClickReportMode}
+              onChange={e => {
+                onBulkClickReportModeChange(e.target.checked);
+                if (e.target.checked) {
+                  onBulkHideModeChange(false);
+                  onBulkUnhideModeChange(false);
+                }
+              }}
+              className='mt-1 h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500'
+            />
+            <span className='flex flex-col gap-1'>
+              <span className='text-sm font-medium text-gray-900'>
+                {copy.bulkClickReport.modeToggle}
+              </span>
+              <span className='text-sm text-gray-600'>
+                {copy.bulkClickReport.modeHint}
+              </span>
+            </span>
+          </label>
+        ) : null}
+
         <label className='inline-flex flex-1 items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm'>
           <input
             type='checkbox'
             checked={bulkUnhideMode}
             onChange={e => {
               onBulkUnhideModeChange(e.target.checked);
-              if (e.target.checked) onBulkHideModeChange(false);
+              if (e.target.checked) {
+                onBulkHideModeChange(false);
+                onBulkClickReportModeChange(false);
+              }
             }}
             className='mt-1 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500'
           />
