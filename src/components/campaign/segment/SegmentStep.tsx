@@ -55,6 +55,7 @@ import {
 import { serializeCampaignPayload } from '../../../utils/campaignUtils';
 import { useCampaignValidation } from '../../../hooks/useCampaignValidation';
 import { isCurrentUsableSmartTargetingCapacity } from '../../../utils/smartTargetingCapacity';
+import { getSmartTargetingExactCapacityInputKey } from '../../../utils/smartTargetingExecutionCalculation';
 import { useSmartTargetingTestSamplingSync } from './useSmartTargetingTestSamplingSync';
 
 const isAudienceTargetingMethod = (
@@ -1047,25 +1048,51 @@ const LevelStep: React.FC = () => {
   });
 
   const handleSmartTargetingCalculationChange = useCallback(
-    (calculation: SmartTargetingCapacityCalculationResponse | null) => {
+    (
+      calculation: SmartTargetingCapacityCalculationResponse | null,
+      source: 'lookup' | 'poll' | 'start' | 'stale'
+    ) => {
       const current = campaignDataRef.current.segment;
       const calculationIsCurrent = isCurrentUsableSmartTargetingCapacity(
         calculation,
         current.selectedTagIds,
         calculation?.selected_score_classes
       );
+      const freshCalculationId =
+        source === 'start' && calculation
+          ? calculation.calculation_id
+          : current.smartTargetingExactCapacityFreshCalculationId;
+      const isFreshAfterForcedRecalculation =
+        current.smartTargetingExactCapacityForceFreshCalculation !== true ||
+        (freshCalculationId !== null &&
+          calculation?.calculation_id === freshCalculationId &&
+          (source === 'start' || source === 'poll'));
       if (
         JSON.stringify(current.smartTargetingCapacityCalculation ?? null) ===
           JSON.stringify(calculation) &&
         (!calculationIsCurrent ||
+          !isFreshAfterForcedRecalculation ||
           current.smartTargetingExactCapacityRequired !== true)
       ) {
         return;
       }
       updateLevel({
         smartTargetingCapacityCalculation: calculation,
-        ...(calculationIsCurrent
-          ? { smartTargetingExactCapacityRequired: false }
+        ...(source === 'start' && calculation
+          ? {
+              smartTargetingExactCapacityFreshCalculationId:
+                calculation.calculation_id,
+            }
+          : {}),
+        ...(calculationIsCurrent && isFreshAfterForcedRecalculation
+          ? {
+              smartTargetingExactCapacityRequired: false,
+              smartTargetingExactCapacityForceFreshCalculation: false,
+              smartTargetingExactCapacityInvalidatedCalculationId: null,
+              smartTargetingExactCapacityFreshCalculationId: null,
+              smartTargetingExactCapacityInputKey:
+                getSmartTargetingExactCapacityInputKey(campaignDataRef.current),
+            }
           : {}),
       });
     },
@@ -1541,6 +1568,18 @@ const LevelStep: React.FC = () => {
               calculationRequiredByServer={
                 campaignData.segment.smartTargetingExactCapacityRequired ===
                 true
+              }
+              forceFreshCalculation={
+                campaignData.segment.smartTargetingExactCapacityForceFreshCalculation ===
+                true
+              }
+              invalidatedCalculationId={
+                campaignData.segment
+                  .smartTargetingExactCapacityInvalidatedCalculationId
+              }
+              freshCalculationId={
+                campaignData.segment
+                  .smartTargetingExactCapacityFreshCalculationId
               }
               canCreateCampaign={campaignValidation.isStepCompleted(1)}
               preserveSelectionOrder={isSmartTargetingTest}

@@ -90,6 +90,9 @@ interface SmartTargetingExactCapacityProps {
   scoreClassesAreDirty: boolean;
   initialCalculation?: SmartTargetingCapacityCalculationResponse | null;
   calculationRequiredByServer?: boolean;
+  forceFreshCalculation?: boolean;
+  invalidatedCalculationId?: number | null;
+  freshCalculationId?: number | null;
   canCreateCampaign?: boolean;
   preserveSelectionOrder?: boolean;
   selectionOrderIsPending?: boolean;
@@ -108,7 +111,8 @@ interface SmartTargetingExactCapacityProps {
     source: 'local' | 'server'
   ) => void;
   onCalculationChange: (
-    calculation: SmartTargetingCapacityCalculationResponse | null
+    calculation: SmartTargetingCapacityCalculationResponse | null,
+    source: CalculationUpdateSource
   ) => void;
   copy: ExactCapacityCopy;
 }
@@ -117,6 +121,8 @@ interface CalculationBaseline {
   tagKey: string;
   scoreClassKey: string;
 }
+
+type CalculationUpdateSource = 'lookup' | 'poll' | 'start' | 'stale';
 
 const SCORE_CLASSES: AudienceGrade[] = ['A', 'B', 'C'];
 const NON_RETRYABLE_POLL_ERRORS = new Set([
@@ -143,6 +149,9 @@ const SmartTargetingExactCapacity: React.FC<
   scoreClassesAreDirty,
   initialCalculation,
   calculationRequiredByServer = false,
+  forceFreshCalculation = false,
+  invalidatedCalculationId = null,
+  freshCalculationId = null,
   canCreateCampaign = false,
   preserveSelectionOrder = false,
   selectionOrderIsPending = false,
@@ -224,23 +233,55 @@ const SmartTargetingExactCapacity: React.FC<
   calculationRef.current = calculation;
 
   const commitCalculation = useCallback(
-    (next: SmartTargetingCapacityCalculationResponse | null) => {
-      calculationRef.current = next;
-      setCalculation(next);
-      onCalculationChange(next);
+    (
+      next: SmartTargetingCapacityCalculationResponse | null,
+      source: CalculationUpdateSource = 'lookup'
+    ) => {
+      const isFreshUserCalculation =
+        source === 'start' ||
+        (source === 'poll' &&
+          freshCalculationId !== null &&
+          next?.calculation_id === freshCalculationId);
+      const isInvalidatedHistoricalCalculation =
+        invalidatedCalculationId !== null &&
+        next?.calculation_id === invalidatedCalculationId;
+      const mustRemainStale =
+        forceFreshCalculation &&
+        next !== null &&
+        (!isFreshUserCalculation || isInvalidatedHistoricalCalculation);
+      const committed =
+        next && mustRemainStale
+          ? {
+              ...next,
+              status: 'recalculation_required',
+              is_current: false,
+              recalculation_required: true,
+            }
+          : next;
+      calculationRef.current = committed;
+      setCalculation(committed);
+      onCalculationChange(committed, source);
     },
-    [onCalculationChange]
+    [
+      forceFreshCalculation,
+      freshCalculationId,
+      invalidatedCalculationId,
+      onCalculationChange,
+    ]
   );
 
   const markCalculationStale = useCallback(() => {
     const current = calculationRef.current;
     if (!current || isSmartTargetingCapacityStale(current)) return;
-    commitCalculation({
-      ...current,
-      status: 'recalculation_required',
-      is_current: false,
-      recalculation_required: true,
-    });
+    commitCalculation(
+      {
+        ...current,
+        status: 'recalculation_required',
+        is_current: false,
+        recalculation_required: true,
+      },
+      'stale'
+    );
   }, [commitCalculation]);
 
   useEffect(() => {
@@ -363,7 +404,7 @@ const SmartTargetingExactCapacity: React.FC<
         if (syncScoreClassesFromCalculationRef.current) {
           onScoreClassesChange(normalized.selected_score_classes, 'server');
         }
-        commitCalculation(normalized);
+        commitCalculation(normalized, 'lookup');
       })
       .finally(() => {
         if (currentLookupAbortRef.current === controller) {
@@ -468,7 +509,7 @@ const SmartTargetingExactCapacity: React.FC<
 
       retryCount = 0;
       setRequestError(null);
-      commitCalculation(normalized);
+      commitCalculation(normalized, 'poll');
       if (isSmartTargetingCapacityActive(normalized)) {
         schedule(SMART_TARGETING_CAPACITY_POLL_INTERVAL_MS);
       }
@@ -597,7 +638,7 @@ const SmartTargetingExactCapacity: React.FC<
         if (syncScoreClassesFromCalculationRef.current) {
           onScoreClassesChange(normalized.selected_score_classes, 'server');
         }
-        commitCalculation(normalized);
+        commitCalculation(normalized, 'lookup');
       }
       schedule();
     };
@@ -816,7 +857,9 @@ const SmartTargetingExactCapacity: React.FC<
             onScoreClassesChange(pending.selected_score_classes, 'server');
           }
           setRequestError(null);
-          commitCalculation(pending);
+          // A pending calculation returned here may have been created earlier.
+          // Do not classify it as a fresh user-started calculation.
+          commitCalculation(pending, 'lookup');
           return;
         }
         setRequestError(
@@ -849,7 +892,7 @@ const SmartTargetingExactCapacity: React.FC<
       if (syncScoreClassesFromCalculationRef.current) {
         onScoreClassesChange(normalized.selected_score_classes, 'server');
       }
-      commitCalculation(normalized);
+      commitCalculation(normalized, 'start');
     } catch {
       campaignCreationRequestedRef.current = false;
       if (

@@ -37,6 +37,11 @@ import {
   getSmartTargetingTestPreviewInputKey,
   hasUsableSmartTargetingTestPreview,
 } from '../utils/smartTargetingTestPreview';
+import {
+  getSmartTargetingExactCapacityInputKey,
+  getSmartTargetingExecutionCalculationInputKey,
+  normalizeSmartTargetingExecutionCalculation,
+} from '../utils/smartTargetingExecutionCalculation';
 
 interface CampaignContextType {
   currentStep: number;
@@ -176,6 +181,11 @@ const createDefaultCampaignData = (): CampaignData => ({
     smartTargetingScoreClassesDirty: false,
     smartTargetingTestSamplingInputsDirty: false,
     smartTargetingCapacityCalculation: null,
+    smartTargetingExactCapacityInputKey: null,
+    smartTargetingExactCapacityForceFreshCalculation: false,
+    smartTargetingExactCapacityInvalidatedCalculationId: null,
+    smartTargetingExactCapacityFreshCalculationId: null,
+    smartTargetingExecutionReservation: null,
     smartTargetingExactCapacityRequired: false,
     smartTargetingSortBy: '',
     smartTargetingSortDirection: 'desc',
@@ -302,6 +312,91 @@ const normalizeStoredCampaignData = (value: unknown): CampaignData => {
         normalizeSmartTargetingCapacityCalculation(
           storedSegment.smartTargetingCapacityCalculation
         ),
+      smartTargetingExactCapacityInputKey:
+        typeof storedSegment.smartTargetingExactCapacityInputKey === 'string'
+          ? storedSegment.smartTargetingExactCapacityInputKey
+          : null,
+      smartTargetingExactCapacityForceFreshCalculation:
+        storedSegment.smartTargetingExactCapacityForceFreshCalculation === true,
+      smartTargetingExactCapacityInvalidatedCalculationId:
+        typeof storedSegment.smartTargetingExactCapacityInvalidatedCalculationId ===
+          'number' &&
+        Number.isSafeInteger(
+          storedSegment.smartTargetingExactCapacityInvalidatedCalculationId
+        ) &&
+        storedSegment.smartTargetingExactCapacityInvalidatedCalculationId > 0
+          ? storedSegment.smartTargetingExactCapacityInvalidatedCalculationId
+          : null,
+      smartTargetingExactCapacityFreshCalculationId:
+        typeof storedSegment.smartTargetingExactCapacityFreshCalculationId ===
+          'number' &&
+        Number.isSafeInteger(
+          storedSegment.smartTargetingExactCapacityFreshCalculationId
+        ) &&
+        storedSegment.smartTargetingExactCapacityFreshCalculationId > 0
+          ? storedSegment.smartTargetingExactCapacityFreshCalculationId
+          : null,
+      smartTargetingExecutionReservation: (() => {
+        const reservation = storedSegment.smartTargetingExecutionReservation;
+        if (
+          reservation &&
+          typeof reservation === 'object' &&
+          !Array.isArray(reservation)
+        ) {
+          const candidate = reservation as unknown as Record<string, unknown>;
+          const calculation = normalizeSmartTargetingExecutionCalculation(
+            candidate.calculation
+          );
+          const phase = candidate.phase;
+          const inputKey = candidate.input_key;
+          if (
+            typeof inputKey === 'string' &&
+            [
+              'idle',
+              'saving',
+              'requesting',
+              'polling',
+              'ready',
+              'committing',
+              'failed',
+            ].includes(String(phase))
+          ) {
+            return {
+              phase: phase as any,
+              input_key: inputKey,
+              calculation,
+              error_code:
+                typeof candidate.error_code === 'string'
+                  ? candidate.error_code
+                  : null,
+              error_message:
+                typeof candidate.error_message === 'string'
+                  ? candidate.error_message
+                  : null,
+            };
+          }
+        }
+        const legacy = storedSegment as Record<string, unknown>;
+        const calculation = normalizeSmartTargetingExecutionCalculation(
+          legacy.smartTargetingExecutionCalculation
+        );
+        const inputKey = legacy.smartTargetingExecutionCalculationInputKey;
+        if (!calculation || typeof inputKey !== 'string') return null;
+        return {
+          phase:
+            calculation.status === 'failed'
+              ? 'failed'
+              : calculation.status === 'ready'
+                ? 'ready'
+                : legacy.smartTargetingExecutionFinalizationPending === true
+                  ? 'polling'
+                  : 'idle',
+          input_key: inputKey,
+          calculation,
+          error_code: calculation.error_code,
+          error_message: calculation.error_message,
+        };
+      })(),
       smartTargetingExactCapacityRequired:
         storedSegment.smartTargetingExactCapacityRequired === true,
       smartTargetingSortBy:
@@ -467,6 +562,49 @@ const invalidateDerivedCampaignState = (
   },
 });
 
+const invalidateExecutionReservationIfInputsChanged = (
+  previous: CampaignData,
+  next: CampaignData
+): CampaignData => {
+  const executionInputKey =
+    previous.segment.smartTargetingExecutionReservation?.input_key;
+  const exactInputKey = previous.segment.smartTargetingExactCapacityInputKey;
+  const nextInputKey = getSmartTargetingExecutionCalculationInputKey(next);
+  const executionChanged = Boolean(
+    executionInputKey && executionInputKey !== nextInputKey
+  );
+  const exactChanged = Boolean(
+    exactInputKey &&
+    exactInputKey !== getSmartTargetingExactCapacityInputKey(next)
+  );
+  if (!executionChanged && !exactChanged) return next;
+
+  return {
+    ...next,
+    segment: {
+      ...next.segment,
+      smartTargetingExecutionReservation: executionChanged
+        ? null
+        : next.segment.smartTargetingExecutionReservation,
+      smartTargetingCapacityCalculation: exactChanged
+        ? null
+        : next.segment.smartTargetingCapacityCalculation,
+      smartTargetingExactCapacityInputKey: exactChanged
+        ? null
+        : next.segment.smartTargetingExactCapacityInputKey,
+      smartTargetingExactCapacityForceFreshCalculation: exactChanged,
+      smartTargetingExactCapacityInvalidatedCalculationId: exactChanged
+        ? (previous.segment.smartTargetingCapacityCalculation?.calculation_id ??
+          null)
+        : next.segment.smartTargetingExactCapacityInvalidatedCalculationId,
+      smartTargetingExactCapacityFreshCalculationId: exactChanged
+        ? null
+        : next.segment.smartTargetingExactCapacityFreshCalculationId,
+      smartTargetingExactCapacityRequired: true,
+    },
+  };
+};
+
 export const CampaignProvider: React.FC<CampaignProviderProps> = ({
   children,
 }) => {
@@ -585,7 +723,7 @@ export const CampaignProvider: React.FC<CampaignProviderProps> = ({
         segment: nextSegment,
         ...derivedState,
       };
-      return updatedData;
+      return invalidateExecutionReservationIfInputsChanged(prev, updatedData);
     });
   }, []);
 
@@ -616,7 +754,7 @@ export const CampaignProvider: React.FC<CampaignProviderProps> = ({
           : derivedState.budget,
         payment: derivedState.payment,
       };
-      return updatedData;
+      return invalidateExecutionReservationIfInputsChanged(prev, updatedData);
     });
   }, []);
 
@@ -631,7 +769,7 @@ export const CampaignProvider: React.FC<CampaignProviderProps> = ({
         },
         payment: derivedState.payment,
       };
-      return updatedData;
+      return invalidateExecutionReservationIfInputsChanged(prev, updatedData);
     });
   }, []);
 
@@ -681,6 +819,15 @@ export const CampaignProvider: React.FC<CampaignProviderProps> = ({
               smartTargetingTestPreviewStale:
                 prev.segment.smartTargetingTestPreview !== null ||
                 prev.segment.smartTargetingTestPreviewInputKey !== null,
+              smartTargetingCapacityCalculation: null,
+              smartTargetingExactCapacityInputKey: null,
+              smartTargetingExactCapacityRequired: true,
+              smartTargetingExactCapacityForceFreshCalculation: true,
+              smartTargetingExactCapacityInvalidatedCalculationId:
+                prev.segment.smartTargetingCapacityCalculation
+                  ?.calculation_id ?? null,
+              smartTargetingExactCapacityFreshCalculationId: null,
+              smartTargetingExecutionReservation: null,
             }
           : prev.segment,
         budget: shouldClearTestEstimate

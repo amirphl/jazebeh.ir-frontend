@@ -16,6 +16,7 @@ import {
 import { CampaignProvider, useCampaign } from './useCampaign';
 import { LEVEL_SELECTION_KEY } from '../types/segment';
 import { getSmartTargetingTestPreviewInputKey } from '../utils/smartTargetingTestPreview';
+import { getSmartTargetingExecutionCalculationInputKey } from '../utils/smartTargetingExecutionCalculation';
 
 const CampaignProbe = () => {
   const { campaignData, currentStep } = useCampaign();
@@ -177,6 +178,90 @@ const TestPreviewInvalidationProbe = () => {
   );
 };
 
+const ExecutionReservationInvalidationProbe = () => {
+  const { campaignData, setCampaignUuid, updateLevel, updateBudget } =
+    useCampaign();
+  const configureReservation = () => {
+    setCampaignUuid('campaign-uuid');
+    updateLevel({
+      audienceTargetingMethod: 'smart_targeting',
+      phase: 'execution',
+      platform: 'sms',
+      bundleId: 12,
+      selectedTagIds: [2, 1],
+      smartTargetingScoreClasses: ['A'],
+    });
+    updateBudget({ totalBudget: 100000 });
+  };
+  const applyReservation = () => {
+    const inputKey =
+      getSmartTargetingExecutionCalculationInputKey(campaignData);
+    updateLevel({
+      smartTargetingExecutionReservation: {
+        phase: 'polling',
+        input_key: inputKey,
+        calculation: {
+          calculation_id: 91,
+          campaign_id: 7,
+          bundle_id: 12,
+          requested_audience_count: 1200,
+          status: 'pending',
+          is_current: false,
+          recalculation_required: false,
+          created_at: '2026-09-19T10:00:00Z',
+        },
+      },
+    });
+  };
+  const applyExactCapacity = () => {
+    const inputKey =
+      getSmartTargetingExecutionCalculationInputKey(campaignData);
+    updateLevel({
+      smartTargetingCapacityCalculation: {
+        calculation_id: 42,
+        campaign_id: 7,
+        bundle_id: 12,
+        status: 'calculated',
+        is_current: true,
+        recalculation_required: false,
+        selected_score_classes: ['A'],
+        selected_tag_count: 2,
+        usable_unique_audience_count: 1200,
+        created_at: '2026-09-19T10:00:00Z',
+      },
+      smartTargetingExactCapacityInputKey: inputKey,
+    });
+  };
+  return (
+    <>
+      <button type='button' onClick={configureReservation}>
+        Configure Reservation
+      </button>
+      <button type='button' onClick={applyReservation}>
+        Apply Reservation
+      </button>
+      <button type='button' onClick={applyExactCapacity}>
+        Apply Exact Capacity
+      </button>
+      <button
+        type='button'
+        onClick={() => updateBudget({ totalBudget: 100001 })}
+      >
+        Change Reservation Budget
+      </button>
+      <button
+        type='button'
+        onClick={() => setCampaignUuid('replacement-campaign-uuid')}
+      >
+        Change Reservation Campaign
+      </button>
+      <output data-testid='execution-reservation-state'>
+        {JSON.stringify(campaignData.segment)}
+      </output>
+    </>
+  );
+};
+
 describe('CampaignProvider draft hydration', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -308,6 +393,59 @@ describe('CampaignProvider draft hydration', () => {
     );
     expect(state.campaignData.segment.smartTargetingTestPreview).toBeNull();
     expect(state.campaignData.budget.totalBudget).toBe(0);
+  });
+
+  it('restores a pending execution reservation for payment-page polling', () => {
+    localStorage.setItem('campaign_creation_step', '4');
+    localStorage.setItem(
+      'campaign_creation_data',
+      JSON.stringify({
+        uuid: 'campaign-uuid',
+        segment: {
+          campaignTitle: 'Execution campaign',
+          platform: 'sms',
+          audienceTargetingMethod: 'smart_targeting',
+          selectedTagIds: [2, 1],
+          smartTargetingScoreClasses: ['A'],
+          bundleId: 12,
+          phase: 'execution',
+          smartTargetingExecutionReservation: {
+            phase: 'polling',
+            input_key: '12|1,2|A|sms|3000|100000|execution',
+            calculation: {
+              calculation_id: 91,
+              campaign_id: 7,
+              bundle_id: 12,
+              requested_audience_count: 1200,
+              status: 'pending',
+              is_current: false,
+              recalculation_required: false,
+              created_at: '2026-09-19T10:00:00Z',
+            },
+          },
+        },
+        content: { lineNumber: '3000' },
+        budget: { totalBudget: 100000 },
+      })
+    );
+
+    render(
+      <CampaignProvider>
+        <CampaignProbe />
+      </CampaignProvider>
+    );
+
+    const state = JSON.parse(
+      screen.getByTestId('campaign-state').textContent || '{}'
+    );
+    expect(state.currentStep).toBe(4);
+    expect(state.campaignData.segment).toMatchObject({
+      smartTargetingExecutionReservation: {
+        phase: 'polling',
+        input_key: '12|1,2|A|sms|3000|100000|execution',
+        calculation: { calculation_id: 91 },
+      },
+    });
   });
 
   it('keeps all campaign storage cleared after resetting state', async () => {
@@ -508,6 +646,118 @@ describe('CampaignProvider draft hydration', () => {
         stale: true,
         budget: 0,
         uuid: 'different-campaign-uuid',
+      })
+    );
+  });
+
+  it('clears a persisted execution reservation when its budget changes', async () => {
+    render(
+      <CampaignProvider>
+        <ExecutionReservationInvalidationProbe />
+      </CampaignProvider>
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Configure Reservation' })
+    );
+    await waitFor(() =>
+      expect(
+        JSON.parse(
+          screen.getByTestId('execution-reservation-state').textContent || '{}'
+        ).bundleId
+      ).toBe(12)
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Reservation' }));
+    await waitFor(() =>
+      expect(
+        JSON.parse(
+          screen.getByTestId('execution-reservation-state').textContent || '{}'
+        ).smartTargetingExecutionReservation
+      ).toMatchObject({ calculation: { calculation_id: 91 } })
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Change Reservation Budget' })
+    );
+    await waitFor(() =>
+      expect(
+        JSON.parse(
+          screen.getByTestId('execution-reservation-state').textContent || '{}'
+        )
+      ).toMatchObject({
+        smartTargetingExecutionReservation: null,
+        smartTargetingExactCapacityRequired: true,
+      })
+    );
+  });
+
+  it('clears exact-capacity and execution state when the campaign UUID changes', async () => {
+    render(
+      <CampaignProvider>
+        <ExecutionReservationInvalidationProbe />
+      </CampaignProvider>
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Configure Reservation' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Apply Reservation' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Apply Exact Capacity' })
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Change Reservation Campaign' })
+    );
+    await waitFor(() =>
+      expect(
+        JSON.parse(
+          screen.getByTestId('execution-reservation-state').textContent || '{}'
+        )
+      ).toMatchObject({
+        smartTargetingExecutionReservation: null,
+        smartTargetingCapacityCalculation: null,
+        smartTargetingExactCapacityInputKey: null,
+        smartTargetingExactCapacityRequired: true,
+        smartTargetingExactCapacityForceFreshCalculation: true,
+      })
+    );
+  });
+
+  it('invalidates exact capacity before the first execution reservation', async () => {
+    render(
+      <CampaignProvider>
+        <ExecutionReservationInvalidationProbe />
+      </CampaignProvider>
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Configure Reservation' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Apply Exact Capacity' })
+    );
+    await waitFor(() =>
+      expect(
+        JSON.parse(
+          screen.getByTestId('execution-reservation-state').textContent || '{}'
+        ).smartTargetingCapacityCalculation
+      ).toMatchObject({ calculation_id: 42 })
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Change Reservation Budget' })
+    );
+    await waitFor(() =>
+      expect(
+        JSON.parse(
+          screen.getByTestId('execution-reservation-state').textContent || '{}'
+        )
+      ).toMatchObject({
+        smartTargetingCapacityCalculation: null,
+        smartTargetingExactCapacityInputKey: null,
+        smartTargetingExactCapacityForceFreshCalculation: true,
+        smartTargetingExactCapacityInvalidatedCalculationId: 42,
       })
     );
   });

@@ -131,6 +131,63 @@ describe('SmartTargetingExactCapacity', () => {
     expect(await screen.findByText(copy.calculationInProgress)).toBeTruthy();
   });
 
+  it('keeps a historical calculation stale while a forced fresh calculation is required', async () => {
+    const props = {
+      ...defaultProps(),
+      forceFreshCalculation: true,
+      invalidatedCalculationId: 42,
+    };
+    mockedApiService.getCurrentSmartTargetingCapacityCalculation.mockResolvedValue(
+      {
+        success: true,
+        message: 'ok',
+        data: calculation() as any,
+      }
+    );
+
+    render(<SmartTargetingExactCapacity {...props} />);
+
+    expect(await screen.findByText(copy.recalculationRequired)).toBeTruthy();
+    await waitFor(() =>
+      expect(props.onCalculationChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          calculation_id: 42,
+          is_current: false,
+          recalculation_required: true,
+        }),
+        'lookup'
+      )
+    );
+  });
+
+  it('does not accept a different calculation returned by a background lookup as fresh', async () => {
+    const props = {
+      ...defaultProps(),
+      forceFreshCalculation: true,
+      invalidatedCalculationId: 42,
+    };
+    mockedApiService.getCurrentSmartTargetingCapacityCalculation.mockResolvedValue(
+      {
+        success: true,
+        message: 'ok',
+        data: calculation({ calculation_id: 43 }) as any,
+      }
+    );
+
+    render(<SmartTargetingExactCapacity {...props} />);
+
+    await waitFor(() =>
+      expect(props.onCalculationChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          calculation_id: 43,
+          is_current: false,
+          recalculation_required: true,
+        }),
+        'lookup'
+      )
+    );
+  });
+
   it('preserves ordered Test tags while using the shared score-class selection', async () => {
     const props = {
       ...defaultProps(),
@@ -593,7 +650,8 @@ describe('SmartTargetingExactCapacity', () => {
 
     expect(await screen.findByText(copy.calculationInProgress)).toBeTruthy();
     expect(props.onCalculationChange).toHaveBeenCalledWith(
-      expect.objectContaining({ calculation_id: 42, status: 'calculating' })
+      expect.objectContaining({ calculation_id: 42, status: 'calculating' }),
+      'lookup'
     );
   });
 });

@@ -13,8 +13,20 @@ import { paymentI18n } from './paymentTranslations';
 import { useLineNumbers } from '../content/useLineNumbers';
 import { isCurrentUsableSmartTargetingCapacity } from '../../../utils/smartTargetingCapacity';
 import { hasUsableSmartTargetingTestPreview } from '../../../utils/smartTargetingTestPreview';
+import Button from '../../ui/Button';
+import type { ExecutionReservationState } from '../CampaignPaymentStep';
 
-const PaymentStep: React.FC = () => {
+interface PaymentStepProps {
+  executionReservationState?: ExecutionReservationState;
+  executionReservationError?: string | null;
+  onRetryExecutionReservation?: () => void;
+}
+
+const PaymentStep: React.FC<PaymentStepProps> = ({
+  executionReservationState = 'idle',
+  executionReservationError,
+  onRetryExecutionReservation,
+}) => {
   const { campaignData, updatePayment } = useCampaign();
   const { isAuthenticated, accessToken } = useAuth();
   const { language } = useLanguage();
@@ -130,6 +142,29 @@ const PaymentStep: React.FC = () => {
       ? campaignData.content.lineNumber
       : campaignData.content.platformSettingsId)
   );
+  const isSmartTargetingExecution =
+    audienceTargetingMethod === 'smart_targeting' &&
+    campaignData.segment.phase === 'execution';
+  const reservationInProgress = [
+    'saving',
+    'requesting',
+    'polling',
+    'committing',
+  ].includes(executionReservationState);
+  const reservationStatus =
+    executionReservationState === 'saving'
+      ? t.reservationSaving
+      : executionReservationState === 'requesting'
+        ? t.reservationRequesting
+        : executionReservationState === 'committing'
+          ? t.reservationCommitting
+          : executionReservationState === 'ready'
+            ? t.reservationCommitting
+          : executionReservationState === 'polling'
+            ? t.reservationPolling
+            : executionReservationState === 'failed'
+              ? t.reservationFailed
+              : null;
 
   return (
     <div className='space-y-8'>
@@ -140,6 +175,33 @@ const PaymentStep: React.FC = () => {
       />
 
       <div className='space-y-6'>
+        {isSmartTargetingExecution &&
+        (reservationStatus || executionReservationError) ? (
+          <section
+            className='rounded-lg border border-primary-200 bg-primary-50 p-4'
+            aria-live='polite'
+          >
+            <h2 className='font-medium text-gray-900'>{t.reservationTitle}</h2>
+            {reservationStatus ? (
+              <p className='mt-1 text-sm text-gray-700'>{reservationStatus}</p>
+            ) : null}
+            {executionReservationError ? (
+              <p className='mt-2 text-sm text-red-700' role='alert'>
+                {executionReservationError}
+              </p>
+            ) : null}
+            {!reservationInProgress && onRetryExecutionReservation ? (
+              <Button
+                className='mt-3'
+                variant='outline'
+                onClick={onRetryExecutionReservation}
+              >
+                {t.reservationRetry}
+              </Button>
+            ) : null}
+          </section>
+        ) : null}
+
         {/* Cost Breakdown */}
         <CostBreakdownCard
           platform={platform}

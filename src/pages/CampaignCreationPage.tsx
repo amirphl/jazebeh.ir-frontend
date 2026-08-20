@@ -17,6 +17,7 @@ import CampaignSegmentStep from '../components/campaign/CampaignSegmentStep';
 import CampaignContentStep from '../components/campaign/CampaignContentStep';
 import CampaignBudgetStep from '../components/campaign/CampaignBudgetStep';
 import CampaignPaymentStep from '../components/campaign/CampaignPaymentStep';
+import type { ExecutionReservationState } from '../components/campaign/CampaignPaymentStep';
 import { budgetI18n } from '../components/campaign/budget/budgetTranslations';
 import { contentI18n } from '../components/campaign/content/contentTranslations';
 import Button from '../components/ui/Button';
@@ -27,9 +28,34 @@ import {
   UpdateSMSCampaignRequest,
 } from '../types/campaign';
 import {
+  isCurrentUsableSmartTargetingCapacity,
   isSmartTargetingCapacityRecalculationError,
   normalizeSmartTargetingCapacityCalculation,
 } from '../utils/smartTargetingCapacity';
+import {
+  getSmartTargetingExecutionCalculationInputKey,
+  isSmartTargetingExecutionCalculationActive,
+  isSmartTargetingExecutionCalculationReady,
+  isSmartTargetingExecutionCalculationStale,
+  normalizeSmartTargetingExecutionCalculation,
+  SMART_TARGETING_EXECUTION_MAX_POLL_RETRIES,
+  SMART_TARGETING_EXECUTION_POLL_INTERVAL_MS,
+} from '../utils/smartTargetingExecutionCalculation';
+
+const isSmartTargetingExecutionCampaign = (
+  data: Parameters<typeof serializeCampaignPayload>[0]
+) =>
+  data.segment.audienceTargetingMethod === 'smart_targeting' &&
+  data.segment.phase === 'execution';
+
+const isUnknownFinalizationFailure = (errorCode: string): boolean =>
+  [
+    '',
+    'NETWORK_ERROR',
+    'TIMEOUT_ERROR',
+    'INVALID_RESPONSE',
+    'REQUEST_FAILED',
+  ].includes(errorCode);
 
 const CampaignCreationPage: React.FC = () => {
   const { t } = useTranslation();
@@ -57,6 +83,30 @@ const CampaignCreationPage: React.FC = () => {
   const [isAdvancing, setIsAdvancing] = React.useState(false);
   const advancingRef = React.useRef(false);
   const finishingRef = React.useRef(false);
+  const campaignDataRef = React.useRef(campaignData);
+  const executionReservationAbortRef = React.useRef<AbortController | null>(
+    null
+  );
+  campaignDataRef.current = campaignData;
+  const isExecutionReservationLocked =
+    isSmartTargetingExecutionCampaign(campaignData) &&
+    (isFinishing ||
+      ['saving', 'requesting', 'polling', 'ready', 'committing'].includes(
+        campaignData.segment.smartTargetingExecutionReservation?.phase || 'idle'
+      ));
+  const persistedReservation =
+    campaignData.segment.smartTargetingExecutionReservation;
+  const displayedReservationState: ExecutionReservationState =
+    persistedReservation?.phase || 'idle';
+  const displayedReservationError =
+    persistedReservation?.error_message ||
+    (persistedReservation?.error_code
+      ? getErrorMessage(
+          persistedReservation.error_code,
+          language,
+          persistedReservation.error_code
+        )
+      : null);
 
   // Use the validation hook
   const validation = useCampaignValidation(
@@ -74,6 +124,7 @@ const CampaignCreationPage: React.FC = () => {
   }, [currentStep]);
 
   useEffect(() => {
+    if (isExecutionReservationLocked) return;
     if (validation.isStepAccessible(currentStep)) return;
     for (let step = 1; step < currentStep; step += 1) {
       if (!validation.isStepCompleted(step)) {
@@ -81,7 +132,7 @@ const CampaignCreationPage: React.FC = () => {
         return;
       }
     }
-  }, [currentStep, goToStep, validation]);
+  }, [currentStep, goToStep, isExecutionReservationLocked, validation]);
 
   // Campaign UUID will be created when user clicks "next" on the segment page (step 1)
 
@@ -95,89 +146,124 @@ const CampaignCreationPage: React.FC = () => {
     }
   }, [accessToken]);
 
-  const handleCampaignUpdateError = (
-    response: {
-      success: boolean;
-      message?: string;
-      error?: { code?: string; details?: unknown };
-    },
-    fallbackMessage: string
-  ) => {
-    const errorCode = response.error?.code;
-    const isSmartTargeting =
-      campaignData.segment.audienceTargetingMethod === 'smart_targeting';
-    const smartTargetingTestErrorCodes = new Set([
-      'SMART_TARGETING_TEST_PREVIEW_REQUIRED',
-      'SMART_TARGETING_TEST_NO_SATISFIED_TAGS',
-      'SMART_TARGETING_SAMPLE_SIZE_REQUIRED',
-      'SMART_TARGETING_SAMPLE_SIZE_INVALID',
-      'SMART_TARGETING_TEST_AUDIENCE_COUNT_OVERFLOW',
-      'CAMPAIGN_COST_OVERFLOW',
-    ]);
-    if (
-      isSmartTargeting &&
-      campaignData.segment.phase === 'test' &&
-      errorCode &&
-      smartTargetingTestErrorCodes.has(errorCode)
-    ) {
-      const availabilityMustBeCheckedAgain =
-        errorCode === 'SMART_TARGETING_TEST_PREVIEW_REQUIRED' ||
-        errorCode === 'SMART_TARGETING_TEST_NO_SATISFIED_TAGS';
-      if (availabilityMustBeCheckedAgain) {
-        updateLevel({
-          smartTargetingTestPreview: null,
-          smartTargetingTestPreviewInputKey: null,
-          smartTargetingTestPreviewStale: true,
-        });
-        updateBudget({ totalBudget: 0, estimatedMessages: undefined });
+  const handleCampaignUpdateError = React.useCallback(
+    (
+      response: {
+        success: boolean;
+        message?: string;
+        error?: { code?: string; details?: unknown };
+      },
+      fallbackMessage: string
+    ) => {
+      const errorCode = response.error?.code;
+      const isSmartTargeting =
+        campaignData.segment.audienceTargetingMethod === 'smart_targeting';
+      const smartTargetingTestErrorCodes = new Set([
+        'SMART_TARGETING_TEST_PREVIEW_REQUIRED',
+        'SMART_TARGETING_TEST_NO_SATISFIED_TAGS',
+        'SMART_TARGETING_SAMPLE_SIZE_REQUIRED',
+        'SMART_TARGETING_SAMPLE_SIZE_INVALID',
+        'SMART_TARGETING_TEST_AUDIENCE_COUNT_OVERFLOW',
+        'CAMPAIGN_COST_OVERFLOW',
+      ]);
+      if (
+        isSmartTargeting &&
+        campaignData.segment.phase === 'test' &&
+        errorCode &&
+        smartTargetingTestErrorCodes.has(errorCode)
+      ) {
+        const availabilityMustBeCheckedAgain =
+          errorCode === 'SMART_TARGETING_TEST_PREVIEW_REQUIRED' ||
+          errorCode === 'SMART_TARGETING_TEST_NO_SATISFIED_TAGS';
+        if (availabilityMustBeCheckedAgain) {
+          updateLevel({
+            smartTargetingTestPreview: null,
+            smartTargetingTestPreviewInputKey: null,
+            smartTargetingTestPreviewStale: true,
+          });
+          updateBudget({ totalBudget: 0, estimatedMessages: undefined });
+        }
+        goToStep(availabilityMustBeCheckedAgain ? 3 : 1);
+        showError(getErrorMessage(errorCode, language, fallbackMessage));
+        return;
       }
-      goToStep(availabilityMustBeCheckedAgain ? 3 : 1);
-      showError(getErrorMessage(errorCode, language, fallbackMessage));
-      return;
-    }
-    if (
-      isSmartTargeting &&
-      isSmartTargetingCapacityRecalculationError(errorCode)
-    ) {
-      const pendingCalculation = normalizeSmartTargetingCapacityCalculation(
-        response.error?.details
-      );
-      if (pendingCalculation) {
-        updateLevel({
-          smartTargetingCapacityCalculation: pendingCalculation,
-          smartTargetingScoreClasses: pendingCalculation.selected_score_classes,
-          smartTargetingScoreClassesDirty: false,
-          smartTargetingTestSamplingInputsDirty: false,
-          smartTargetingExactCapacityRequired: true,
-        });
-      } else if (campaignData.segment.smartTargetingCapacityCalculation) {
-        updateLevel({
-          smartTargetingCapacityCalculation: {
-            ...campaignData.segment.smartTargetingCapacityCalculation,
-            status: 'recalculation_required',
-            is_current: false,
-            recalculation_required: true,
-          },
-          smartTargetingExactCapacityRequired: true,
-        });
-      } else {
-        updateLevel({ smartTargetingExactCapacityRequired: true });
+      if (
+        isSmartTargeting &&
+        isSmartTargetingCapacityRecalculationError(errorCode)
+      ) {
+        const pendingCalculation = normalizeSmartTargetingCapacityCalculation(
+          response.error?.details
+        );
+        if (pendingCalculation) {
+          updateLevel({
+            smartTargetingExecutionReservation: null,
+            smartTargetingCapacityCalculation: pendingCalculation,
+            smartTargetingScoreClasses:
+              pendingCalculation.selected_score_classes,
+            smartTargetingScoreClassesDirty: false,
+            smartTargetingTestSamplingInputsDirty: false,
+            smartTargetingExactCapacityRequired: true,
+            smartTargetingExactCapacityInputKey: null,
+            smartTargetingExactCapacityForceFreshCalculation: true,
+            smartTargetingExactCapacityInvalidatedCalculationId:
+              campaignData.segment.smartTargetingCapacityCalculation
+                ?.calculation_id ?? null,
+            smartTargetingExactCapacityFreshCalculationId: null,
+          });
+        } else if (campaignData.segment.smartTargetingCapacityCalculation) {
+          updateLevel({
+            smartTargetingExecutionReservation: null,
+            smartTargetingCapacityCalculation: {
+              ...campaignData.segment.smartTargetingCapacityCalculation,
+              status: 'recalculation_required',
+              is_current: false,
+              recalculation_required: true,
+            },
+            smartTargetingExactCapacityRequired: true,
+            smartTargetingExactCapacityInputKey: null,
+            smartTargetingExactCapacityForceFreshCalculation: true,
+            smartTargetingExactCapacityInvalidatedCalculationId:
+              campaignData.segment.smartTargetingCapacityCalculation
+                ?.calculation_id ?? null,
+            smartTargetingExactCapacityFreshCalculationId: null,
+          });
+        } else {
+          updateLevel({
+            smartTargetingExecutionReservation: null,
+            smartTargetingExactCapacityRequired: true,
+            smartTargetingExactCapacityInputKey: null,
+            smartTargetingExactCapacityForceFreshCalculation: true,
+            smartTargetingExactCapacityInvalidatedCalculationId: null,
+            smartTargetingExactCapacityFreshCalculationId: null,
+          });
+        }
+        goToStep(1);
+        showError(
+          getErrorMessage(
+            errorCode,
+            language,
+            getErrorMessage('SMART_TARGETING_EXACT_CAPACITY_REQUIRED', language)
+          )
+        );
+        return;
       }
-      goToStep(1);
-      showError(
-        getErrorMessage(
-          errorCode,
-          language,
-          getErrorMessage('SMART_TARGETING_EXACT_CAPACITY_REQUIRED', language)
-        )
-      );
-      return;
-    }
 
-    showError(getApiErrorMessage(response, language, fallbackMessage));
-  };
+      showError(getApiErrorMessage(response, language, fallbackMessage));
+    },
+    [
+      campaignData.segment.audienceTargetingMethod,
+      campaignData.segment.phase,
+      campaignData.segment.smartTargetingCapacityCalculation,
+      goToStep,
+      language,
+      showError,
+      updateBudget,
+      updateLevel,
+    ]
+  );
 
   const handleNextStep = async () => {
+    if (isExecutionReservationLocked) return;
     if (advancingRef.current) return;
     const liveContentValidation =
       currentStep >= 2
@@ -317,6 +403,7 @@ const CampaignCreationPage: React.FC = () => {
   };
 
   const handlePreviousStep = () => {
+    if (isExecutionReservationLocked) return;
     try {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch {}
@@ -324,6 +411,7 @@ const CampaignCreationPage: React.FC = () => {
   };
 
   const handleStepClick = async (step: number) => {
+    if (isExecutionReservationLocked) return;
     if (step !== currentStep) {
       try {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -340,6 +428,609 @@ const CampaignCreationPage: React.FC = () => {
 
     // If step > currentStep + 1, don't allow skipping ahead
   };
+
+  const completeCampaignSuccessfully = React.useCallback(() => {
+    localStorage.removeItem('campaign_creation_data');
+    localStorage.removeItem('campaign_creation_step');
+    resetCampaign();
+    showSuccess(
+      language === 'fa'
+        ? 'کمپین با موفقیت تکمیل شد.'
+        : 'Campaign completed successfully!'
+    );
+    navigate('/dashboard');
+  }, [language, navigate, resetCampaign, showSuccess]);
+
+  const returnToExactCapacity = React.useCallback(
+    (message: string) => {
+      executionReservationAbortRef.current?.abort();
+      executionReservationAbortRef.current = null;
+      updateLevel({
+        smartTargetingExecutionReservation: null,
+        smartTargetingCapacityCalculation: null,
+        smartTargetingExactCapacityInputKey: null,
+        smartTargetingExactCapacityRequired: true,
+        smartTargetingExactCapacityForceFreshCalculation: true,
+        smartTargetingExactCapacityInvalidatedCalculationId:
+          campaignDataRef.current.segment.smartTargetingCapacityCalculation
+            ?.calculation_id ?? null,
+        smartTargetingExactCapacityFreshCalculationId: null,
+      });
+      goToStep(1);
+      showError(message);
+    },
+    [goToStep, showError, updateLevel]
+  );
+
+  const runExecutionReservation = React.useCallback(
+    async (resume = false) => {
+      if (finishingRef.current) return;
+      const initialCampaign = campaignDataRef.current;
+      if (!isSmartTargetingExecutionCampaign(initialCampaign)) return;
+
+      const uuid = initialCampaign.uuid.trim();
+      const title = initialCampaign.segment.campaignTitle.trim();
+      const inputKey =
+        getSmartTargetingExecutionCalculationInputKey(initialCampaign);
+      if (!uuid || !title) {
+        showError('Campaign ID not found');
+        return;
+      }
+      const hasCurrentExactCapacity =
+        initialCampaign.segment.smartTargetingSelectionDirty !== true &&
+        initialCampaign.segment.smartTargetingScoreClassesDirty !== true &&
+        initialCampaign.segment.smartTargetingExactCapacityRequired !== true &&
+        initialCampaign.segment
+          .smartTargetingExactCapacityForceFreshCalculation !== true &&
+        initialCampaign.segment.smartTargetingExactCapacityInputKey ===
+          getSmartTargetingExecutionCalculationInputKey(initialCampaign) &&
+        isCurrentUsableSmartTargetingCapacity(
+          initialCampaign.segment.smartTargetingCapacityCalculation,
+          initialCampaign.segment.selectedTagIds,
+          initialCampaign.segment.smartTargetingScoreClasses
+        );
+      if (!hasCurrentExactCapacity) {
+        returnToExactCapacity(
+          getErrorMessage(
+            'SMART_TARGETING_EXACT_CAPACITY_REQUIRED',
+            language,
+            'Calculate the current exact Smart Targeting capacity before continuing'
+          )
+        );
+        return;
+      }
+
+      const matchesCurrentInputs = () =>
+        getSmartTargetingExecutionCalculationInputKey(
+          campaignDataRef.current
+        ) === inputKey;
+      const storedReservation =
+        initialCampaign.segment.smartTargetingExecutionReservation;
+      const storedCalculation = storedReservation?.calculation;
+      let calculation =
+        storedReservation?.input_key === inputKey && storedCalculation
+          ? storedCalculation
+          : null;
+      // A failed job can be explicitly retried from the payment screen; it
+      // must not be mistaken for a reusable reservation.
+      if (calculation?.status === 'failed') {
+        calculation = null;
+      }
+      const controller = new AbortController();
+      executionReservationAbortRef.current?.abort();
+      executionReservationAbortRef.current = controller;
+      finishingRef.current = true;
+      setIsFinishing(true);
+
+      const persist = (
+        nextCalculation: typeof calculation,
+        phase:
+          | 'saving'
+          | 'requesting'
+          | 'polling'
+          | 'ready'
+          | 'committing'
+          | 'failed',
+        errorCode?: string | null,
+        errorMessage?: string | null
+      ) => {
+        updateLevel({
+          smartTargetingExecutionReservation: {
+            phase,
+            input_key: inputKey,
+            calculation: nextCalculation,
+            error_code: errorCode ?? null,
+            error_message: errorMessage ?? null,
+          },
+        });
+      };
+      const stopForChangedInputs = () => {
+        if (matchesCurrentInputs()) return false;
+        return true;
+      };
+      const waitForNextPoll = (delay: number) =>
+        new Promise<void>(resolve => window.setTimeout(resolve, delay));
+      let retryCount = 0;
+      let confirmationPollRequired = false;
+
+      try {
+        apiService.setAccessToken(accessToken);
+        if (
+          resume &&
+          storedReservation?.phase === 'committing' &&
+          calculation
+        ) {
+          const statusResponse =
+            await apiService.getSmartTargetingExecutionCalculationById(
+              uuid,
+              calculation.calculation_id,
+              controller.signal
+            );
+          if (controller.signal.aborted || stopForChangedInputs()) return;
+          const refreshed = normalizeSmartTargetingExecutionCalculation(
+            statusResponse.success ? statusResponse.data : null
+          );
+          if (refreshed?.status === 'committed') {
+            completeCampaignSuccessfully();
+            return;
+          }
+          if (isSmartTargetingExecutionCalculationStale(refreshed)) {
+            returnToExactCapacity(
+              getErrorMessage(
+                'SMART_TARGETING_EXECUTION_CALCULATION_STALE',
+                language,
+                'The audience reservation is no longer current. Recalculate exact capacity.'
+              )
+            );
+            return;
+          }
+          if (refreshed?.status === 'failed') {
+            persist(
+              refreshed,
+              'failed',
+              refreshed.error_code,
+              refreshed.error_message
+            );
+            return;
+          }
+          if (isSmartTargetingExecutionCalculationReady(refreshed)) {
+            calculation = refreshed;
+            confirmationPollRequired = true;
+            persist(
+              refreshed,
+              'polling',
+              'SMART_TARGETING_EXECUTION_CALCULATION_COMMIT_FAILED',
+              getErrorMessage(
+                'SMART_TARGETING_EXECUTION_CALCULATION_COMMIT_FAILED',
+                language,
+                'Confirming the reservation status before retrying finalization.'
+              )
+            );
+          }
+          if (
+            refreshed &&
+            !isSmartTargetingExecutionCalculationReady(refreshed)
+          ) {
+            calculation = refreshed;
+          }
+          if (!refreshed) {
+            confirmationPollRequired = true;
+            persist(
+              calculation,
+              'polling',
+              statusResponse.error?.code ||
+                'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
+              getApiErrorMessage(
+                statusResponse,
+                language,
+                'The reservation status could not be confirmed. Retrying automatically.'
+              )
+            );
+          }
+        }
+        if (
+          !calculation &&
+          (!resume || storedReservation?.phase === 'saving')
+        ) {
+          persist(null, 'saving');
+          const saveResponse = await apiService.updateCampaign(
+            uuid,
+            serializeCampaignPayload(initialCampaign, {
+              includeContent: true,
+              includeBudget: true,
+              finalize: false,
+            }),
+            controller.signal
+          );
+          if (controller.signal.aborted || stopForChangedInputs()) return;
+          if (!saveResponse.success) {
+            if (
+              isSmartTargetingCapacityRecalculationError(
+                saveResponse.error?.code
+              )
+            ) {
+              handleCampaignUpdateError(
+                saveResponse,
+                'Failed to save campaign before reserving the audience'
+              );
+              return;
+            }
+            persist(
+              null,
+              'failed',
+              saveResponse.error?.code || null,
+              getApiErrorMessage(
+                saveResponse,
+                language,
+                'Failed to save campaign before reserving the audience'
+              )
+            );
+            return;
+          }
+        }
+
+        if (!calculation) {
+          persist(null, 'requesting');
+          const response =
+            await apiService.startSmartTargetingExecutionCalculation(
+              uuid,
+              controller.signal
+            );
+          if (controller.signal.aborted || stopForChangedInputs()) return;
+          calculation = normalizeSmartTargetingExecutionCalculation(
+            response.success ? response.data : response.error?.details
+          );
+          if (!calculation) {
+            const errorCode = response.error?.code || '';
+            if (isSmartTargetingCapacityRecalculationError(errorCode)) {
+              returnToExactCapacity(
+                getErrorMessage(
+                  errorCode,
+                  language,
+                  'Calculate the current exact Smart Targeting capacity before continuing'
+                )
+              );
+              return;
+            }
+            persist(
+              null,
+              'failed',
+              response.error?.code || null,
+              getApiErrorMessage(
+                response,
+                language,
+                'Failed to request the audience reservation'
+              )
+            );
+            return;
+          }
+          persist(calculation, 'polling');
+        }
+
+        while (!controller.signal.aborted) {
+          if (stopForChangedInputs()) return;
+          if (isSmartTargetingExecutionCalculationStale(calculation)) {
+            returnToExactCapacity(
+              getErrorMessage(
+                'SMART_TARGETING_EXECUTION_CALCULATION_STALE',
+                language,
+                'The audience reservation is no longer current. Recalculate exact capacity.'
+              )
+            );
+            return;
+          }
+          if (calculation.status === 'failed') {
+            persist(
+              calculation,
+              'failed',
+              calculation.error_code,
+              calculation.error_message
+            );
+            return;
+          }
+          if (calculation.status === 'committed') {
+            completeCampaignSuccessfully();
+            return;
+          }
+          if (confirmationPollRequired) {
+            persist(calculation, 'polling');
+            await waitForNextPoll(SMART_TARGETING_EXECUTION_POLL_INTERVAL_MS);
+            if (controller.signal.aborted || stopForChangedInputs()) return;
+            const confirmationResponse =
+              await apiService.getSmartTargetingExecutionCalculationById(
+                uuid,
+                calculation.calculation_id,
+                controller.signal
+              );
+            if (controller.signal.aborted || stopForChangedInputs()) return;
+            const confirmed = normalizeSmartTargetingExecutionCalculation(
+              confirmationResponse.success ? confirmationResponse.data : null
+            );
+            if (!confirmed) {
+              retryCount += 1;
+              if (retryCount > SMART_TARGETING_EXECUTION_MAX_POLL_RETRIES) {
+                persist(
+                  calculation,
+                  'failed',
+                  confirmationResponse.error?.code || null,
+                  getApiErrorMessage(
+                    confirmationResponse,
+                    language,
+                    'The reservation status could not be confirmed. Retry to continue.'
+                  )
+                );
+                return;
+              }
+              continue;
+            }
+            retryCount = 0;
+            calculation = confirmed;
+            confirmationPollRequired = false;
+            persist(calculation, 'polling');
+            continue;
+          }
+          if (isSmartTargetingExecutionCalculationReady(calculation)) {
+            persist(calculation, 'committing');
+            const finalResponse = await apiService.updateCampaign(
+              uuid,
+              {
+                title,
+                finalize: true,
+                execution_audience_calculation_id: calculation.calculation_id,
+              },
+              controller.signal
+            );
+            if (controller.signal.aborted || stopForChangedInputs()) return;
+            if (!finalResponse.success) {
+              const errorCode = finalResponse.error?.code || '';
+              if (isSmartTargetingCapacityRecalculationError(errorCode)) {
+                returnToExactCapacity(
+                  getErrorMessage(
+                    errorCode,
+                    language,
+                    'The audience reservation is no longer current. Recalculate exact capacity.'
+                  )
+                );
+                return;
+              }
+              const statusResponse =
+                await apiService.getSmartTargetingExecutionCalculationById(
+                  uuid,
+                  calculation.calculation_id,
+                  controller.signal
+                );
+              if (controller.signal.aborted || stopForChangedInputs()) return;
+              const refreshed = normalizeSmartTargetingExecutionCalculation(
+                statusResponse.success ? statusResponse.data : null
+              );
+              if (refreshed?.status === 'committed') {
+                completeCampaignSuccessfully();
+                return;
+              }
+              if (isSmartTargetingExecutionCalculationStale(refreshed)) {
+                returnToExactCapacity(
+                  getErrorMessage(
+                    'SMART_TARGETING_EXECUTION_CALCULATION_STALE',
+                    language,
+                    'The audience reservation is no longer current. Recalculate exact capacity.'
+                  )
+                );
+                return;
+              }
+              if (refreshed?.status === 'failed') {
+                persist(
+                  refreshed,
+                  'failed',
+                  refreshed.error_code,
+                  refreshed.error_message
+                );
+                return;
+              }
+              if (
+                refreshed &&
+                (isSmartTargetingExecutionCalculationActive(refreshed) ||
+                  isSmartTargetingExecutionCalculationReady(refreshed))
+              ) {
+                calculation = refreshed;
+                if (!isUnknownFinalizationFailure(errorCode)) {
+                  persist(
+                    calculation,
+                    'failed',
+                    errorCode || null,
+                    getApiErrorMessage(
+                      finalResponse,
+                      language,
+                      'The reservation could not be committed. Retry to continue.'
+                    )
+                  );
+                  return;
+                }
+                confirmationPollRequired = true;
+                persist(
+                  calculation,
+                  'polling',
+                  errorCode || null,
+                  getApiErrorMessage(
+                    finalResponse,
+                    language,
+                    'The reservation outcome is unknown. Confirming its status.'
+                  )
+                );
+                continue;
+              }
+              persist(
+                calculation,
+                'failed',
+                errorCode,
+                getApiErrorMessage(
+                  finalResponse,
+                  language,
+                  'Failed to confirm the audience reservation status'
+                )
+              );
+              return;
+            }
+            completeCampaignSuccessfully();
+            return;
+          }
+
+          persist(calculation, 'polling');
+          await waitForNextPoll(
+            Math.min(
+              SMART_TARGETING_EXECUTION_POLL_INTERVAL_MS * (retryCount + 1),
+              30_000
+            )
+          );
+          if (controller.signal.aborted || stopForChangedInputs()) return;
+          const pollResponse =
+            await apiService.getSmartTargetingExecutionCalculationById(
+              uuid,
+              calculation.calculation_id,
+              controller.signal
+            );
+          if (controller.signal.aborted || stopForChangedInputs()) return;
+          const next = normalizeSmartTargetingExecutionCalculation(
+            pollResponse.success ? pollResponse.data : null
+          );
+          if (!next) {
+            retryCount += 1;
+            if (retryCount > SMART_TARGETING_EXECUTION_MAX_POLL_RETRIES) {
+              persist(
+                calculation,
+                'failed',
+                pollResponse.error?.code || null,
+                getApiErrorMessage(
+                  pollResponse,
+                  language,
+                  'Reservation updates are delayed. Retry to continue.'
+                )
+              );
+              return;
+            }
+            persist(
+              calculation,
+              'polling',
+              pollResponse.error?.code || null,
+              getErrorMessage(
+                'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
+                language,
+                'The latest reservation status could not be loaded. Retrying automatically.'
+              )
+            );
+            continue;
+          }
+          retryCount = 0;
+          calculation = next;
+          persist(calculation, 'polling');
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          persist(
+            calculation,
+            'failed',
+            'SMART_TARGETING_EXECUTION_CALCULATION_COMMIT_FAILED',
+            getErrorMessage(
+              'SMART_TARGETING_EXECUTION_CALCULATION_COMMIT_FAILED',
+              language,
+              'The audience reservation could not be completed. Retry to continue.'
+            )
+          );
+        }
+      } finally {
+        if (executionReservationAbortRef.current === controller) {
+          executionReservationAbortRef.current = null;
+        }
+        finishingRef.current = false;
+        setIsFinishing(false);
+      }
+    },
+    [
+      accessToken,
+      completeCampaignSuccessfully,
+      handleCampaignUpdateError,
+      language,
+      returnToExactCapacity,
+      showError,
+      updateLevel,
+    ]
+  );
+
+  React.useEffect(() => {
+    const current = campaignDataRef.current;
+    const reservation = current.segment.smartTargetingExecutionReservation;
+    if (
+      currentStep !== 4 ||
+      !isSmartTargetingExecutionCampaign(current) ||
+      !reservation
+    ) {
+      return;
+    }
+    if (reservation.calculation?.status === 'committed') {
+      completeCampaignSuccessfully();
+      return;
+    }
+    if (reservation.phase === 'failed') return;
+    if (
+      !['saving', 'requesting', 'polling', 'ready', 'committing'].includes(
+        reservation.phase
+      )
+    ) {
+      return;
+    }
+    const inputKey = getSmartTargetingExecutionCalculationInputKey(current);
+    if (reservation.input_key !== inputKey) {
+      updateLevel({
+        smartTargetingExecutionReservation: null,
+      });
+      return;
+    }
+    if (
+      !reservation.calculation &&
+      !['saving', 'requesting'].includes(reservation.phase)
+    ) {
+      updateLevel({
+        smartTargetingExecutionReservation: {
+          ...reservation,
+          phase: 'failed',
+          error_code: 'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
+          error_message: getErrorMessage(
+            'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
+            language,
+            'Reservation recovery needs to be retried.'
+          ),
+        },
+      });
+      return;
+    }
+    if (reservation.phase === 'requesting' && !reservation.calculation) {
+      updateLevel({
+        smartTargetingExecutionReservation: {
+          ...reservation,
+          phase: 'failed',
+          error_code: 'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
+          error_message: getErrorMessage(
+            'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
+            language,
+            'Automatic recovery paused to avoid duplicate reservation requests. Retry to continue.'
+          ),
+        },
+      });
+      return;
+    }
+    void runExecutionReservation(true);
+  }, [
+    campaignData,
+    completeCampaignSuccessfully,
+    currentStep,
+    language,
+    runExecutionReservation,
+    updateLevel,
+  ]);
+
+  React.useEffect(
+    () => () => executionReservationAbortRef.current?.abort(),
+    []
+  );
 
   const handleFinish = async () => {
     if (finishingRef.current) return;
@@ -358,6 +1049,11 @@ const CampaignCreationPage: React.FC = () => {
             : undefined) ||
           'Please complete every campaign step'
       );
+      return;
+    }
+
+    if (isSmartTargetingExecutionCampaign(campaignData)) {
+      await runExecutionReservation(false);
       return;
     }
 
@@ -399,20 +1095,7 @@ const CampaignCreationPage: React.FC = () => {
         return;
       }
 
-      // Clear campaign data from localStorage completely
-      localStorage.removeItem('campaign_creation_data');
-      localStorage.removeItem('campaign_creation_step');
-
-      // Reset campaign state in React context as well
-      resetCampaign();
-
-      // Show success message and navigate to dashboard
-      const successMessage =
-        language === 'fa'
-          ? 'کمپین با موفقیت تکمیل شد.'
-          : 'Campaign completed successfully!';
-      showSuccess(successMessage);
-      navigate('/dashboard');
+      completeCampaignSuccessfully();
     } catch {
       // Show error message but DO NOT redirect to dashboard
       // This prevents infinite loops and allows user to see the error
@@ -439,7 +1122,15 @@ const CampaignCreationPage: React.FC = () => {
       case 3:
         return <CampaignBudgetStep />;
       case 4:
-        return <CampaignPaymentStep />;
+        return (
+          <CampaignPaymentStep
+            executionReservationState={displayedReservationState}
+            executionReservationError={displayedReservationError}
+            onRetryExecutionReservation={() => {
+              void runExecutionReservation(false);
+            }}
+          />
+        );
       default:
         return <CampaignSegmentStep />;
     }
@@ -451,19 +1142,22 @@ const CampaignCreationPage: React.FC = () => {
       id: 1,
       title: t('campaign.steps.segment.title'),
       isCompleted: validation.isStepCompleted(1),
-      isAccessible: validation.isStepAccessible(1),
+      isAccessible:
+        !isExecutionReservationLocked && validation.isStepAccessible(1),
     },
     {
       id: 2,
       title: contentCopy.title,
       isCompleted: validation.isStepCompleted(2),
-      isAccessible: validation.isStepAccessible(2),
+      isAccessible:
+        !isExecutionReservationLocked && validation.isStepAccessible(2),
     },
     {
       id: 3,
       title: budgetCopy.title,
       isCompleted: validation.isStepCompleted(3),
-      isAccessible: validation.isStepAccessible(3),
+      isAccessible:
+        !isExecutionReservationLocked && validation.isStepAccessible(3),
     },
   ];
 
@@ -477,6 +1171,7 @@ const CampaignCreationPage: React.FC = () => {
               <Button
                 variant='ghost'
                 onClick={() => (window.location.href = '/dashboard')}
+                disabled={isExecutionReservationLocked}
                 className={`flex items-center text-gray-600 hover:text-gray-900 transition-colors ${
                   isRTL ? 'space-x-reverse space-x-2' : 'space-x-2'
                 }`}
@@ -525,6 +1220,7 @@ const CampaignCreationPage: React.FC = () => {
               <Button
                 variant='outline'
                 onClick={handlePreviousStep}
+                disabled={isExecutionReservationLocked}
                 className={`flex items-center ${
                   isRTL ? 'space-x-reverse space-x-2' : 'space-x-2'
                 }`}
@@ -552,7 +1248,11 @@ const CampaignCreationPage: React.FC = () => {
             ) : (
               <Button
                 onClick={handleFinish}
-                disabled={!validation.canFinishCampaign() || isFinishing}
+                disabled={
+                  !validation.canFinishCampaign() ||
+                  isFinishing ||
+                  isExecutionReservationLocked
+                }
                 className={`flex items-center ${
                   isRTL ? 'space-x-reverse space-x-2' : 'space-x-2'
                 }`}

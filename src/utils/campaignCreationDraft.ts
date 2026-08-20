@@ -112,6 +112,11 @@ export const createCampaignCreationDraft = (overrides?: {
       smartTargetingScoreClassesDirty: false,
       smartTargetingTestSamplingInputsDirty: false,
       smartTargetingCapacityCalculation: null,
+      smartTargetingExactCapacityInputKey: null,
+      smartTargetingExactCapacityForceFreshCalculation: false,
+      smartTargetingExactCapacityInvalidatedCalculationId: null,
+      smartTargetingExactCapacityFreshCalculationId: null,
+      smartTargetingExecutionReservation: null,
       smartTargetingExactCapacityRequired: false,
       smartTargetingSortBy: '',
       smartTargetingSortDirection: 'desc',
@@ -235,6 +240,11 @@ export const normalizeCampaignResponseToDraft = (
       smartTargetingScoreClassesDirty: false,
       smartTargetingTestSamplingInputsDirty: false,
       smartTargetingCapacityCalculation: null,
+      smartTargetingExactCapacityInputKey: null,
+      smartTargetingExactCapacityForceFreshCalculation: false,
+      smartTargetingExactCapacityInvalidatedCalculationId: null,
+      smartTargetingExactCapacityFreshCalculationId: null,
+      smartTargetingExecutionReservation: null,
       smartTargetingExactCapacityRequired: false,
       sampleSizePerTag:
         typeof campaign.sample_size_per_tag === 'number' &&

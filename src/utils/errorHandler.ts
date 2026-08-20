@@ -290,6 +290,38 @@ export const ERROR_MESSAGES: Record<string, ErrorMessage> = {
     en: 'Exact-capacity calculation failed. Please try again',
     fa: 'محاسبه ظرفیت دقیق با خطا مواجه شد. لطفاً دوباره تلاش کنید',
   },
+  SMART_TARGETING_EXECUTION_CALCULATION_REQUIRED: {
+    en: 'Request and wait for a current Smart Targeting audience reservation before finishing',
+    fa: 'پیش از تکمیل، رزرو فعلی مخاطبان هدف‌گیری هوشمند را درخواست دهید و منتظر بمانید',
+  },
+  SMART_TARGETING_EXECUTION_CALCULATION_STALE: {
+    en: 'The Smart Targeting audience reservation is no longer current. Recalculate exact capacity.',
+    fa: 'رزرو مخاطبان هدف‌گیری هوشمند دیگر معتبر نیست. ظرفیت دقیق را دوباره محاسبه کنید',
+  },
+  SMART_TARGETING_EXECUTION_CALCULATION_FAILED: {
+    en: 'The Smart Targeting audience reservation failed. Adjust the campaign and try again.',
+    fa: 'رزرو مخاطبان هدف‌گیری هوشمند ناموفق بود. ارسال را اصلاح کرده و دوباره تلاش کنید',
+  },
+  SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED: {
+    en: 'The latest audience reservation status could not be loaded. Retrying automatically.',
+    fa: 'آخرین وضعیت رزرو مخاطبان بارگذاری نشد. تلاش مجدد به‌صورت خودکار انجام می‌شود',
+  },
+  SMART_TARGETING_EXECUTION_CALCULATION_COMMIT_FAILED: {
+    en: 'The audience reservation could not be committed. Retry to continue.',
+    fa: 'ثبت رزرو مخاطبان ناموفق بود. برای ادامه دوباره تلاش کنید',
+  },
+  SMART_TARGETING_EXECUTION_CALCULATION_COMMITTED: {
+    en: 'This audience reservation was already used. Refresh the campaign before trying again.',
+    fa: 'این رزرو مخاطبان قبلاً استفاده شده است. پیش از تلاش دوباره، ارسال را تازه‌سازی کنید',
+  },
+  INSUFFICIENT_CAPACITY: {
+    en: 'There is not enough available audience capacity. Lower the budget or change targeting.',
+    fa: 'ظرفیت مخاطبان کافی نیست. بودجه را کاهش دهید یا هدف‌گیری را تغییر دهید',
+  },
+  CAMPAIGN_FINALIZE_STALE: {
+    en: 'Campaign data changed before finalization. Recalculate exact capacity and try again.',
+    fa: 'داده‌های ارسال پیش از تکمیل تغییر کرده‌اند. ظرفیت دقیق را دوباره محاسبه کنید',
+  },
   SMART_TARGETING_APPROVED_ALLOCATION_FAILED: {
     en: 'Approved Campaign allocations could not be applied to the capacity',
     fa: 'اعمال تخصیص ارسال‌های تأییدشده بر ظرفیت ناموفق بود',

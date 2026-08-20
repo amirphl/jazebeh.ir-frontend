@@ -40,6 +40,16 @@ const paymentEn = {
   balanceErrorHelp: 'Please try again later or contact support.',
   balanceNotAvailable: 'Wallet balance not available',
   balanceHelp: 'Your wallet balance is checked against the campaign cost.',
+  reservationTitle: 'Audience Reservation',
+  reservationSaving: 'Saving the final campaign details…',
+  reservationRequesting: 'Requesting your audience reservation…',
+  reservationPolling:
+    'Preparing the audience reservation. This can take a moment…',
+  reservationCommitting: 'Committing the audience reservation…',
+  reservationRetryable:
+    'Reservation updates are temporarily unavailable. Retry to continue.',
+  reservationFailed: 'The audience reservation could not be prepared.',
+  reservationRetry: 'Retry reservation',
 };
 
 const paymentFa = {
@@ -84,6 +94,15 @@ const paymentFa = {
   balanceErrorHelp: 'لطفاً بعداً دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.',
   balanceNotAvailable: 'موجودی کیف پول در دسترس نیست',
   balanceHelp: 'موجودی کیف پول شما در برابر هزینه ارسال بررسی می‌شود.',
+  reservationTitle: 'رزرو مخاطبان',
+  reservationSaving: 'در حال ذخیره جزئیات نهایی ارسال…',
+  reservationRequesting: 'در حال درخواست رزرو مخاطبان…',
+  reservationPolling: 'در حال آماده‌سازی رزرو مخاطبان. ممکن است کمی زمان ببرد…',
+  reservationCommitting: 'در حال ثبت رزرو مخاطبان…',
+  reservationRetryable:
+    'به‌روزرسانی رزرو موقتاً در دسترس نیست. برای ادامه دوباره تلاش کنید.',
+  reservationFailed: 'آماده‌سازی رزرو مخاطبان ناموفق بود.',
+  reservationRetry: 'تلاش مجدد برای رزرو',
 };
 
 export const paymentI18n = {

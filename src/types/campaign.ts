@@ -3,6 +3,14 @@
 export type AudienceGrade = 'A' | 'B' | 'C';
 export type AudienceTargetingMethod = 'standard' | 'smart_targeting' | 'excel';
 export type CampaignPhase = 'test' | 'execution';
+export type SmartTargetingExecutionReservationPhase =
+  | 'idle'
+  | 'saving'
+  | 'requesting'
+  | 'polling'
+  | 'ready'
+  | 'committing'
+  | 'failed';
 export type SmartTargetingSortBy =
   | 'tag_capacity'
   | 'bundle_persona_fit_score'
@@ -26,6 +34,13 @@ export interface CampaignSegment {
   smartTargetingScoreClassesDirty?: boolean;
   smartTargetingTestSamplingInputsDirty?: boolean;
   smartTargetingCapacityCalculation?: SmartTargetingCapacityCalculationResponse | null;
+  smartTargetingExactCapacityInputKey?: string | null;
+  /** A current result is insufficient until a user starts a new calculation. */
+  smartTargetingExactCapacityForceFreshCalculation?: boolean;
+  smartTargetingExactCapacityInvalidatedCalculationId?: number | null;
+  /** The calculation started by the user after a forced recalculation. */
+  smartTargetingExactCapacityFreshCalculationId?: number | null;
+  smartTargetingExecutionReservation?: SmartTargetingExecutionReservation | null;
   smartTargetingExactCapacityRequired?: boolean;
   smartTargetingSortBy?: SmartTargetingSortBy | '';
   smartTargetingSortDirection?: SmartTargetingSortDirection;
@@ -208,6 +223,7 @@ export interface UpdateSMSCampaignRequest {
   line_number?: string | null;
   budget?: number;
   finalize?: boolean;
+  execution_audience_calculation_id?: number;
   short_link_domain?: string | null;
   job_category?: string;
   job?: string;
@@ -453,6 +469,29 @@ export interface SmartTargetingCapacityCalculationResponse {
   started_at?: string | null;
   finished_at?: string | null;
   expires_at?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+}
+
+export interface SmartTargetingExecutionCalculationResponse {
+  calculation_id: number;
+  campaign_id: number;
+  bundle_id: number;
+  requested_audience_count: number;
+  status: string;
+  is_current: boolean;
+  recalculation_required: boolean;
+  created_at: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  error_code?: string | null;
+  error_message?: string | null;
+}
+
+export interface SmartTargetingExecutionReservation {
+  phase: SmartTargetingExecutionReservationPhase;
+  input_key: string;
+  calculation?: SmartTargetingExecutionCalculationResponse | null;
   error_code?: string | null;
   error_message?: string | null;
 }

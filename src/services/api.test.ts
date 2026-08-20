@@ -196,6 +196,82 @@ describe('campaign creation API safety', () => {
       expect.objectContaining({ method: 'GET', cache: 'no-store' })
     );
   });
+
+  it('starts an execution audience calculation without a request body', async () => {
+    const fetchMock = jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: {} }), {
+        status: 202,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+    await apiService.startSmartTargetingExecutionCalculation('campaign uuid');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/campaigns/campaign%20uuid/smart-targeting/execution-audience-calculations'
+      ),
+      expect.objectContaining({ method: 'POST' })
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBeUndefined();
+  });
+
+  it('validates execution calculation IDs and fetches fresh status by ID', async () => {
+    const fetchMock = jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: {} }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+    const invalid = await apiService.getSmartTargetingExecutionCalculationById(
+      'campaign-uuid',
+      0
+    );
+    expect(invalid).toMatchObject({
+      success: false,
+      error: { code: 'INVALID_CALCULATION_ID' },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await apiService.getSmartTargetingExecutionCalculationById(
+      'campaign uuid',
+      91
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/campaigns/campaign%20uuid/smart-targeting/execution-audience-calculations/91'
+      ),
+      expect.objectContaining({ method: 'GET', cache: 'no-store' })
+    );
+  });
+
+  it('serializes the exact execution calculation ID for finalization', async () => {
+    const fetchMock = jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: {} }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+    await apiService.updateCampaign('campaign-uuid', {
+      title: 'Unchanged title',
+      finalize: true,
+      execution_audience_calculation_id: 91,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/campaigns/campaign-uuid'),
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({
+          title: 'Unchanged title',
+          finalize: true,
+          execution_audience_calculation_id: 91,
+        }),
+      })
+    );
+  });
 });
 
 describe('campaign audience click-report export API', () => {

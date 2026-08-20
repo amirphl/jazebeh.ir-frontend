@@ -44,6 +44,8 @@ export interface EnvironmentConfig {
       smartTargetingAutoSelect: string;
       smartTargetingCapacityCalculations: string;
       smartTargetingCapacityCalculationById: string;
+      smartTargetingExecutionAudienceCalculations: string;
+      smartTargetingExecutionAudienceCalculationById: string;
       smartTargetingTestSamplingPreview: string;
       smartTargetingTestSamplingPreviewById: string;
     };
@@ -157,6 +159,10 @@ const localConfig: EnvironmentConfig = {
         '/campaigns/:uuid/smart-targeting/capacity-calculations',
       smartTargetingCapacityCalculationById:
         '/campaigns/:uuid/smart-targeting/capacity-calculations/:calculation_id',
+      smartTargetingExecutionAudienceCalculations:
+        '/campaigns/:uuid/smart-targeting/execution-audience-calculations',
+      smartTargetingExecutionAudienceCalculationById:
+        '/campaigns/:uuid/smart-targeting/execution-audience-calculations/:calculation_id',
       smartTargetingTestSamplingPreview:
         '/campaigns/:uuid/smart-targeting/test-sampling-preview',
       smartTargetingTestSamplingPreviewById:

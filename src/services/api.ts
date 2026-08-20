@@ -25,6 +25,7 @@ import {
   SmartTargetingSelectionResponse,
   SmartTargetingCapacityCalculationResponse,
   StartSmartTargetingCapacityCalculationRequest,
+  SmartTargetingExecutionCalculationResponse,
   SmartTargetingTestSamplingCalculationResponse,
   UploadMultimediaResponse,
 } from '../types/campaign';
@@ -1334,6 +1335,48 @@ class ApiService {
         .replace(':calculation_id', encodeURIComponent(String(calculationId)));
     return this.request<SmartTargetingCapacityCalculationResponse>(endpoint, {
       method: 'GET',
+      signal,
+    });
+  }
+
+  async startSmartTargetingExecutionCalculation(
+    uuid: string,
+    signal?: AbortSignal
+  ): Promise<ApiResponse<SmartTargetingExecutionCalculationResponse>> {
+    if (!uuid || typeof uuid !== 'string' || !uuid.trim()) {
+      return this.createErrorResponse('INVALID_CAMPAIGN_UUID');
+    }
+
+    const endpoint =
+      config.endpoints.campaigns.smartTargetingExecutionAudienceCalculations.replace(
+        ':uuid',
+        encodeURIComponent(uuid.trim())
+      );
+    return this.request<SmartTargetingExecutionCalculationResponse>(endpoint, {
+      method: 'POST',
+      signal,
+    });
+  }
+
+  async getSmartTargetingExecutionCalculationById(
+    uuid: string,
+    calculationId: number,
+    signal?: AbortSignal
+  ): Promise<ApiResponse<SmartTargetingExecutionCalculationResponse>> {
+    if (!uuid || typeof uuid !== 'string' || !uuid.trim()) {
+      return this.createErrorResponse('INVALID_CAMPAIGN_UUID');
+    }
+    if (!Number.isSafeInteger(calculationId) || calculationId < 1) {
+      return this.createErrorResponse('INVALID_CALCULATION_ID');
+    }
+
+    const endpoint =
+      config.endpoints.campaigns.smartTargetingExecutionAudienceCalculationById
+        .replace(':uuid', encodeURIComponent(uuid.trim()))
+        .replace(':calculation_id', encodeURIComponent(String(calculationId)));
+    return this.request<SmartTargetingExecutionCalculationResponse>(endpoint, {
+      method: 'GET',
+      cache: 'no-store',
       signal,
     });
   }
