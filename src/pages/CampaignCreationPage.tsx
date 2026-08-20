@@ -38,7 +38,6 @@ import {
   isSmartTargetingExecutionCalculationReady,
   isSmartTargetingExecutionCalculationStale,
   normalizeSmartTargetingExecutionCalculation,
-  SMART_TARGETING_EXECUTION_MAX_POLL_RETRIES,
   SMART_TARGETING_EXECUTION_POLL_INTERVAL_MS,
 } from '../utils/smartTargetingExecutionCalculation';
 
@@ -748,19 +747,16 @@ const CampaignCreationPage: React.FC = () => {
             );
             if (!confirmed) {
               retryCount += 1;
-              if (retryCount > SMART_TARGETING_EXECUTION_MAX_POLL_RETRIES) {
-                persist(
-                  calculation,
-                  'failed',
-                  confirmationResponse.error?.code || null,
-                  getApiErrorMessage(
-                    confirmationResponse,
-                    language,
-                    'The reservation status could not be confirmed. Retry to continue.'
-                  )
-                );
-                return;
-              }
+              persist(
+                calculation,
+                'polling',
+                confirmationResponse.error?.code || null,
+                getApiErrorMessage(
+                  confirmationResponse,
+                  language,
+                  'The reservation status could not be confirmed. Retrying automatically.'
+                )
+              );
               continue;
             }
             retryCount = 0;
@@ -789,6 +785,23 @@ const CampaignCreationPage: React.FC = () => {
                     errorCode,
                     language,
                     'The audience reservation is no longer current. Recalculate exact capacity.'
+                  )
+                );
+                return;
+              }
+              if (
+                errorCode === 'SMART_TARGETING_EXECUTION_CALCULATION_REQUIRED'
+              ) {
+                // Exact capacity remains valid. Discard only the missing or
+                // unusable execution proposal so Retry starts a new one.
+                persist(
+                  null,
+                  'failed',
+                  errorCode,
+                  getApiErrorMessage(
+                    finalResponse,
+                    language,
+                    'Request a new audience reservation and try again.'
                   )
                 );
                 return;
@@ -894,19 +907,6 @@ const CampaignCreationPage: React.FC = () => {
           );
           if (!next) {
             retryCount += 1;
-            if (retryCount > SMART_TARGETING_EXECUTION_MAX_POLL_RETRIES) {
-              persist(
-                calculation,
-                'failed',
-                pollResponse.error?.code || null,
-                getApiErrorMessage(
-                  pollResponse,
-                  language,
-                  'Reservation updates are delayed. Retry to continue.'
-                )
-              );
-              return;
-            }
             persist(
               calculation,
               'polling',

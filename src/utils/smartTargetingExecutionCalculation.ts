@@ -4,7 +4,6 @@ import {
 } from '../types/campaign';
 
 export const SMART_TARGETING_EXECUTION_POLL_INTERVAL_MS = 10_000;
-export const SMART_TARGETING_EXECUTION_MAX_POLL_RETRIES = 3;
 
 const normalizeStatus = (value: unknown): string =>
   typeof value === 'string'

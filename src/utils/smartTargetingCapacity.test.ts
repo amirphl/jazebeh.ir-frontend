@@ -69,6 +69,11 @@ describe('Smart Targeting exact-capacity helpers', () => {
         'SMART_TARGETING_CAPACITY_PENDING'
       )
     ).toBe(true);
+    expect(
+      isSmartTargetingCapacityRecalculationError(
+        'SMART_TARGETING_EXECUTION_CALCULATION_REQUIRED'
+      )
+    ).toBe(false);
     expect(isSmartTargetingCapacityRecalculationError('INVALID_STATE')).toBe(
       false
     );

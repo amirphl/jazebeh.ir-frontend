@@ -188,6 +188,44 @@ describe('SmartTargetingExactCapacity', () => {
     );
   });
 
+  it('continues polling a pending historical calculation while fresh capacity is required', async () => {
+    const props = {
+      ...defaultProps(),
+      forceFreshCalculation: true,
+      invalidatedCalculationId: 42,
+    };
+    mockedApiService.getCurrentSmartTargetingCapacityCalculation.mockResolvedValue(
+      {
+        success: true,
+        message: 'ok',
+        data: calculation({
+          calculation_id: 43,
+          status: 'calculating',
+          is_current: false,
+          raw_audience_count: null,
+          eligible_unique_audience_count_before_approved_campaign_deduction:
+            null,
+          approved_campaign_audience_deduction: null,
+          usable_unique_audience_count: null,
+        }) as any,
+      }
+    );
+
+    render(<SmartTargetingExactCapacity {...props} />);
+
+    expect(await screen.findByText(copy.calculationInProgress)).toBeTruthy();
+    await waitFor(() =>
+      expect(props.onCalculationChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          calculation_id: 43,
+          status: 'calculating',
+          recalculation_required: false,
+        }),
+        'lookup'
+      )
+    );
+  });
+
   it('preserves ordered Test tags while using the shared score-class selection', async () => {
     const props = {
       ...defaultProps(),

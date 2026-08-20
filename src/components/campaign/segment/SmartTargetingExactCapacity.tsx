@@ -248,6 +248,7 @@ const SmartTargetingExactCapacity: React.FC<
       const mustRemainStale =
         forceFreshCalculation &&
         next !== null &&
+        !isSmartTargetingCapacityActive(next) &&
         (!isFreshUserCalculation || isInvalidatedHistoricalCalculation);
       const committed =
         next && mustRemainStale

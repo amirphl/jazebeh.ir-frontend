@@ -1091,7 +1091,15 @@ const LevelStep: React.FC = () => {
               smartTargetingExactCapacityInvalidatedCalculationId: null,
               smartTargetingExactCapacityFreshCalculationId: null,
               smartTargetingExactCapacityInputKey:
-                getSmartTargetingExactCapacityInputKey(campaignDataRef.current),
+                getSmartTargetingExactCapacityInputKey({
+                  ...campaignDataRef.current,
+                  segment: {
+                    ...current,
+                    smartTargetingScoreClasses:
+                      calculation?.selected_score_classes ??
+                      current.smartTargetingScoreClasses,
+                  },
+                }),
             }
           : {}),
       });
