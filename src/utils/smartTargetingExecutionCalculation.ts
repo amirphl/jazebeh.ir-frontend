@@ -5,6 +5,21 @@ import {
 
 export const SMART_TARGETING_EXECUTION_POLL_INTERVAL_MS = 10_000;
 
+const NON_RETRYABLE_POLL_ERROR_CODES = new Set([
+  'UNAUTHORIZED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'INVALID_CALCULATION_ID',
+  'INVALID_CAMPAIGN_UUID',
+  'INVALID_REQUEST',
+]);
+
+export const isNonRetryableSmartTargetingExecutionPollError = (
+  value: unknown
+): boolean =>
+  typeof value === 'string' &&
+  NON_RETRYABLE_POLL_ERROR_CODES.has(value.trim().toUpperCase());
+
 const normalizeStatus = (value: unknown): string =>
   typeof value === 'string'
     ? value

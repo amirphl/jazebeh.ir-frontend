@@ -28,7 +28,6 @@ import {
   UpdateSMSCampaignRequest,
 } from '../types/campaign';
 import {
-  isCurrentUsableSmartTargetingCapacity,
   isSmartTargetingCapacityRecalculationError,
   normalizeSmartTargetingCapacityCalculation,
 } from '../utils/smartTargetingCapacity';
@@ -37,6 +36,7 @@ import {
   isSmartTargetingExecutionCalculationActive,
   isSmartTargetingExecutionCalculationReady,
   isSmartTargetingExecutionCalculationStale,
+  isNonRetryableSmartTargetingExecutionPollError,
   normalizeSmartTargetingExecutionCalculation,
   SMART_TARGETING_EXECUTION_POLL_INTERVAL_MS,
 } from '../utils/smartTargetingExecutionCalculation';
@@ -440,22 +440,21 @@ const CampaignCreationPage: React.FC = () => {
     navigate('/dashboard');
   }, [language, navigate, resetCampaign, showSuccess]);
 
-  const returnToExactCapacity = React.useCallback(
+  const restartExecutionReservation = React.useCallback(
     (message: string) => {
       executionReservationAbortRef.current?.abort();
       executionReservationAbortRef.current = null;
+      const current = campaignDataRef.current;
       updateLevel({
-        smartTargetingExecutionReservation: null,
-        smartTargetingCapacityCalculation: null,
-        smartTargetingExactCapacityInputKey: null,
-        smartTargetingExactCapacityRequired: true,
-        smartTargetingExactCapacityForceFreshCalculation: true,
-        smartTargetingExactCapacityInvalidatedCalculationId:
-          campaignDataRef.current.segment.smartTargetingCapacityCalculation
-            ?.calculation_id ?? null,
-        smartTargetingExactCapacityFreshCalculationId: null,
+        smartTargetingExecutionReservation: {
+          phase: 'failed',
+          input_key: getSmartTargetingExecutionCalculationInputKey(current),
+          calculation: null,
+          error_code: 'SMART_TARGETING_EXECUTION_CALCULATION_STALE',
+          error_message: message,
+        },
       });
-      goToStep(1);
+      goToStep(4);
       showError(message);
     },
     [goToStep, showError, updateLevel]
@@ -475,30 +474,6 @@ const CampaignCreationPage: React.FC = () => {
         showError('Campaign ID not found');
         return;
       }
-      const hasCurrentExactCapacity =
-        initialCampaign.segment.smartTargetingSelectionDirty !== true &&
-        initialCampaign.segment.smartTargetingScoreClassesDirty !== true &&
-        initialCampaign.segment.smartTargetingExactCapacityRequired !== true &&
-        initialCampaign.segment
-          .smartTargetingExactCapacityForceFreshCalculation !== true &&
-        initialCampaign.segment.smartTargetingExactCapacityInputKey ===
-          getSmartTargetingExecutionCalculationInputKey(initialCampaign) &&
-        isCurrentUsableSmartTargetingCapacity(
-          initialCampaign.segment.smartTargetingCapacityCalculation,
-          initialCampaign.segment.selectedTagIds,
-          initialCampaign.segment.smartTargetingScoreClasses
-        );
-      if (!hasCurrentExactCapacity) {
-        returnToExactCapacity(
-          getErrorMessage(
-            'SMART_TARGETING_EXACT_CAPACITY_REQUIRED',
-            language,
-            'Calculate the current exact Smart Targeting capacity before continuing'
-          )
-        );
-        return;
-      }
-
       const matchesCurrentInputs = () =>
         getSmartTargetingExecutionCalculationInputKey(
           campaignDataRef.current
@@ -574,11 +549,11 @@ const CampaignCreationPage: React.FC = () => {
             return;
           }
           if (isSmartTargetingExecutionCalculationStale(refreshed)) {
-            returnToExactCapacity(
+            restartExecutionReservation(
               getErrorMessage(
                 'SMART_TARGETING_EXECUTION_CALCULATION_STALE',
                 language,
-                'The audience reservation is no longer current. Recalculate exact capacity.'
+                'The audience reservation is no longer current. Request a new audience reservation.'
               )
             );
             return;
@@ -643,17 +618,6 @@ const CampaignCreationPage: React.FC = () => {
           );
           if (controller.signal.aborted || stopForChangedInputs()) return;
           if (!saveResponse.success) {
-            if (
-              isSmartTargetingCapacityRecalculationError(
-                saveResponse.error?.code
-              )
-            ) {
-              handleCampaignUpdateError(
-                saveResponse,
-                'Failed to save campaign before reserving the audience'
-              );
-              return;
-            }
             persist(
               null,
               'failed',
@@ -682,11 +646,11 @@ const CampaignCreationPage: React.FC = () => {
           if (!calculation) {
             const errorCode = response.error?.code || '';
             if (isSmartTargetingCapacityRecalculationError(errorCode)) {
-              returnToExactCapacity(
+              restartExecutionReservation(
                 getErrorMessage(
                   errorCode,
                   language,
-                  'Calculate the current exact Smart Targeting capacity before continuing'
+                  'The audience reservation could not be requested. Retry after correcting the campaign.'
                 )
               );
               return;
@@ -709,11 +673,11 @@ const CampaignCreationPage: React.FC = () => {
         while (!controller.signal.aborted) {
           if (stopForChangedInputs()) return;
           if (isSmartTargetingExecutionCalculationStale(calculation)) {
-            returnToExactCapacity(
+            restartExecutionReservation(
               getErrorMessage(
                 'SMART_TARGETING_EXECUTION_CALCULATION_STALE',
                 language,
-                'The audience reservation is no longer current. Recalculate exact capacity.'
+                'The audience reservation is no longer current. Request a new audience reservation.'
               )
             );
             return;
@@ -746,6 +710,23 @@ const CampaignCreationPage: React.FC = () => {
               confirmationResponse.success ? confirmationResponse.data : null
             );
             if (!confirmed) {
+              if (
+                isNonRetryableSmartTargetingExecutionPollError(
+                  confirmationResponse.error?.code
+                )
+              ) {
+                persist(
+                  calculation,
+                  'failed',
+                  confirmationResponse.error?.code || null,
+                  getApiErrorMessage(
+                    confirmationResponse,
+                    language,
+                    'The reservation status cannot be retrieved. Retry after correcting the campaign or signing in again.'
+                  )
+                );
+                return;
+              }
               retryCount += 1;
               persist(
                 calculation,
@@ -780,11 +761,11 @@ const CampaignCreationPage: React.FC = () => {
             if (!finalResponse.success) {
               const errorCode = finalResponse.error?.code || '';
               if (isSmartTargetingCapacityRecalculationError(errorCode)) {
-                returnToExactCapacity(
+                restartExecutionReservation(
                   getErrorMessage(
                     errorCode,
                     language,
-                    'The audience reservation is no longer current. Recalculate exact capacity.'
+                    'The audience reservation is no longer current. Request a new audience reservation.'
                   )
                 );
                 return;
@@ -792,8 +773,8 @@ const CampaignCreationPage: React.FC = () => {
               if (
                 errorCode === 'SMART_TARGETING_EXECUTION_CALCULATION_REQUIRED'
               ) {
-                // Exact capacity remains valid. Discard only the missing or
-                // unusable execution proposal so Retry starts a new one.
+                // Discard only the missing or unusable execution proposal so
+                // Retry starts a new one.
                 persist(
                   null,
                   'failed',
@@ -821,11 +802,11 @@ const CampaignCreationPage: React.FC = () => {
                 return;
               }
               if (isSmartTargetingExecutionCalculationStale(refreshed)) {
-                returnToExactCapacity(
+                restartExecutionReservation(
                   getErrorMessage(
                     'SMART_TARGETING_EXECUTION_CALCULATION_STALE',
                     language,
-                    'The audience reservation is no longer current. Recalculate exact capacity.'
+                    'The audience reservation is no longer current. Request a new audience reservation.'
                   )
                 );
                 return;
@@ -906,6 +887,23 @@ const CampaignCreationPage: React.FC = () => {
             pollResponse.success ? pollResponse.data : null
           );
           if (!next) {
+            if (
+              isNonRetryableSmartTargetingExecutionPollError(
+                pollResponse.error?.code
+              )
+            ) {
+              persist(
+                calculation,
+                'failed',
+                pollResponse.error?.code || null,
+                getApiErrorMessage(
+                  pollResponse,
+                  language,
+                  'The reservation status cannot be retrieved. Retry after correcting the campaign or signing in again.'
+                )
+              );
+              return;
+            }
             retryCount += 1;
             persist(
               calculation,
@@ -947,9 +945,8 @@ const CampaignCreationPage: React.FC = () => {
     [
       accessToken,
       completeCampaignSuccessfully,
-      handleCampaignUpdateError,
       language,
-      returnToExactCapacity,
+      restartExecutionReservation,
       showError,
       updateLevel,
     ]

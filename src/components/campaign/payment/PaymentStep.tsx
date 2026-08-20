@@ -11,7 +11,6 @@ import { useCostCalculation } from './useCostCalculation';
 import { useWalletBalance } from './useWalletBalance';
 import { paymentI18n } from './paymentTranslations';
 import { useLineNumbers } from '../content/useLineNumbers';
-import { isCurrentUsableSmartTargetingCapacity } from '../../../utils/smartTargetingCapacity';
 import { hasUsableSmartTargetingTestPreview } from '../../../utils/smartTargetingTestPreview';
 import Button from '../../ui/Button';
 import type { ExecutionReservationState } from '../CampaignPaymentStep';
@@ -101,15 +100,6 @@ const PaymentStep: React.FC<PaymentStepProps> = ({
     (campaignData.segment.targetAudienceExcelFileUuid != null
       ? 'excel'
       : 'standard');
-  const hasCurrentExactCapacity =
-    campaignData.segment.smartTargetingSelectionDirty !== true &&
-    campaignData.segment.smartTargetingScoreClassesDirty !== true &&
-    campaignData.segment.smartTargetingExactCapacityRequired !== true &&
-    isCurrentUsableSmartTargetingCapacity(
-      campaignData.segment.smartTargetingCapacityCalculation,
-      campaignData.segment.selectedTagIds,
-      campaignData.segment.smartTargetingScoreClasses
-    );
   const isSmartTargetingTest =
     audienceTargetingMethod === 'smart_targeting' &&
     campaignData.segment.phase === 'test';
@@ -121,7 +111,7 @@ const PaymentStep: React.FC<PaymentStepProps> = ({
         ) &&
         (isSmartTargetingTest
           ? hasUsableSmartTargetingTestPreview(campaignData)
-          : hasCurrentExactCapacity)
+          : true)
       : audienceTargetingMethod === 'excel'
         ? typeof campaignData.segment.targetAudienceExcelFileUuid ===
             'string' &&
@@ -160,11 +150,11 @@ const PaymentStep: React.FC<PaymentStepProps> = ({
           ? t.reservationCommitting
           : executionReservationState === 'ready'
             ? t.reservationCommitting
-          : executionReservationState === 'polling'
-            ? t.reservationPolling
-            : executionReservationState === 'failed'
-              ? t.reservationFailed
-              : null;
+            : executionReservationState === 'polling'
+              ? t.reservationPolling
+              : executionReservationState === 'failed'
+                ? t.reservationFailed
+                : null;
 
   return (
     <div className='space-y-8'>

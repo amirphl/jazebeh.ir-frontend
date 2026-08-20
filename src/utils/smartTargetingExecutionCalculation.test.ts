@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import { createCampaignCreationDraft } from './campaignCreationDraft';
 import {
   getSmartTargetingExecutionCalculationInputKey,
+  isNonRetryableSmartTargetingExecutionPollError,
   isSmartTargetingExecutionCalculationReady,
   isSmartTargetingExecutionCalculationStale,
   normalizeSmartTargetingExecutionCalculation,
@@ -45,6 +46,21 @@ describe('Smart Targeting execution calculations', () => {
         is_current: false,
       })
     ).toBe(true);
+  });
+
+  it('stops polling only permanently invalid execution-calculation requests', () => {
+    expect(isNonRetryableSmartTargetingExecutionPollError('UNAUTHORIZED')).toBe(
+      true
+    );
+    expect(isNonRetryableSmartTargetingExecutionPollError('NOT_FOUND')).toBe(
+      true
+    );
+    expect(
+      isNonRetryableSmartTargetingExecutionPollError('NETWORK_ERROR')
+    ).toBe(false);
+    expect(
+      isNonRetryableSmartTargetingExecutionPollError('SERVICE_UNAVAILABLE')
+    ).toBe(false);
   });
 
   it('changes its reservation fingerprint for every relevant input', () => {
