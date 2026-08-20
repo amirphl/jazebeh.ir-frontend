@@ -59,15 +59,6 @@ export const useCampaignValidation = (
       ) &&
       new Set(segment.smartTargetingScoreClasses).size ===
         segment.smartTargetingScoreClasses.length;
-    const exactCapacityRequirementSatisfied =
-      isSmartTargetingTest ||
-      segment.smartTargetingExactCapacityRequired !== true ||
-      (segment.smartTargetingSelectionDirty !== true &&
-        isCurrentUsableSmartTargetingCapacity(
-          segment.smartTargetingCapacityCalculation,
-          segment.selectedTagIds,
-          segment.smartTargetingScoreClasses
-        ));
     const audienceGradesValid =
       (segment.audienceGrades?.length ?? 0) <= 3 &&
       (segment.audienceGrades ?? []).every(
@@ -98,7 +89,6 @@ export const useCampaignValidation = (
       (!isSmartTargetingTest || smartTargetingTestScoreClassesValid) &&
       (!isSmartTargetingTest ||
         segment.smartTargetingSelectionOrderPending !== true) &&
-      (!isSmartTargetingMode || exactCapacityRequirementSatisfied) &&
       (isTargetAudienceExcelFileMode ||
         isSmartTargetingMode ||
         hasValidLevelSelection) &&
