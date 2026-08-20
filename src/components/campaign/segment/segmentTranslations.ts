@@ -487,7 +487,7 @@ const campaignLevelFa = {
     descending: 'نزولی',
     columns: {
       selection: 'انتخاب',
-      usedInBundle: 'در بسته',
+      usedInBundle: 'استفاده شده',
       tagDisplayTitle: 'عنوان نمایشی برچسب',
       tagCapacity: 'ظرفیت برچسب',
       bundlePersonaFitScore: 'امتیاز تناسب پرسونای کمپین',
