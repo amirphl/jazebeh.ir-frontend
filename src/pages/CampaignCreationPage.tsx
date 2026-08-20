@@ -960,13 +960,17 @@ const CampaignCreationPage: React.FC = () => {
           }
           if (isSmartTargetingExecutionCalculationReady(calculation)) {
             persist(calculation, 'committing');
+            const finalizePayload: UpdateSMSCampaignRequest = {
+              ...serializeCampaignPayload(initialCampaign, {
+                includeContent: true,
+                includeBudget: true,
+                finalize: true,
+              }),
+              execution_audience_calculation_id: calculation.calculation_id,
+            };
             const finalResponse = await apiService.updateCampaign(
               uuid,
-              {
-                title,
-                finalize: true,
-                execution_audience_calculation_id: calculation.calculation_id,
-              },
+              finalizePayload,
               controller.signal
             );
             if (controller.signal.aborted || stopForChangedInputs()) return;

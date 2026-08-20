@@ -73,6 +73,9 @@ export const useCostCalculation = (
     const isSmartTargetingTest =
       audienceTargetingMethod === 'smart_targeting' &&
       campaignData.segment.phase === 'test';
+    const isSmartTargetingExecution =
+      audienceTargetingMethod === 'smart_targeting' &&
+      campaignData.segment.phase === 'execution';
     const currentTestPreview = isCurrentSmartTargetingTestPreview(campaignData)
       ? campaignData.segment.smartTargetingTestPreview
       : null;
@@ -179,6 +182,7 @@ export const useCostCalculation = (
     if (
       audienceTargetingMethod === 'smart_targeting' &&
       !isSmartTargetingTest &&
+      !isSmartTargetingExecution &&
       hasCurrentExactCapacity &&
       (!Number.isSafeInteger(campaignData.budget.estimatedMessages) ||
         (campaignData.budget.estimatedMessages ?? 0) >
@@ -316,10 +320,7 @@ export const useCostCalculation = (
           latestCampaignData.segment.selectedTagIds,
           latestCampaignData.segment.smartTargetingScoreClasses
         );
-      if (
-        latestIsSmartTargetingExecution &&
-        !latestHasCurrentExactCapacity
-      ) {
+      if (latestIsSmartTargetingExecution && !latestHasCurrentExactCapacity) {
         clearDerivedPayment();
         setError(t.exactCapacityRequiredForCostCalculation);
         return;

@@ -142,6 +142,9 @@ const PaymentStep: React.FC<PaymentStepProps> = ({
     'ready',
     'committing',
   ].includes(executionReservationState);
+  const executionCalculationInProgress =
+    isSmartTargetingExecution &&
+    ['saving', 'requesting', 'polling'].includes(executionReservationState);
   const reservationStatus =
     executionReservationState === 'saving'
       ? t.reservationSaving
@@ -166,6 +169,25 @@ const PaymentStep: React.FC<PaymentStepProps> = ({
       />
 
       <div className='space-y-6'>
+        {executionCalculationInProgress ? (
+          <section
+            className='rounded-xl border-2 border-primary-200 bg-white p-8 text-center shadow-sm'
+            aria-live='polite'
+          >
+            <div className='mx-auto mb-4 h-14 w-14 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600'></div>
+            <h2 className='text-lg font-semibold text-gray-900'>
+              {t.reservationTitle}
+            </h2>
+            <p className='mt-2 text-sm text-gray-700'>
+              {executionReservationState === 'polling'
+                ? t.reservationPolling
+                : executionReservationState === 'requesting'
+                  ? t.reservationRequesting
+                  : t.reservationSaving}
+            </p>
+          </section>
+        ) : null}
+
         {isSmartTargetingExecution &&
         (reservationStatus || executionReservationError) ? (
           <section
