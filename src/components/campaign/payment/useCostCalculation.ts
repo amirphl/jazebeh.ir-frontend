@@ -30,6 +30,8 @@ export const useCostCalculation = (
   const triggeredKeyRef = useRef<string | null>(null);
   const inFlightKeyRef = useRef<string | null>(null);
   const requestSequenceRef = useRef(0);
+  const latestCampaignDataRef = useRef(campaignData);
+  latestCampaignDataRef.current = campaignData;
 
   useEffect(() => {
     apiService.setAccessToken(accessToken || null);
@@ -177,6 +179,7 @@ export const useCostCalculation = (
     if (
       audienceTargetingMethod === 'smart_targeting' &&
       !isSmartTargetingTest &&
+      hasCurrentExactCapacity &&
       (!Number.isSafeInteger(campaignData.budget.estimatedMessages) ||
         (campaignData.budget.estimatedMessages ?? 0) >
           (exactCapacity?.usable_unique_audience_count ?? 0))
@@ -290,6 +293,37 @@ export const useCostCalculation = (
         budget,
       });
       if (requestSequenceRef.current !== requestSequence) return;
+
+      // A reservation poll may have invalidated the exact-capacity snapshot
+      // while this cost request was in flight. Never apply an old cost result
+      // (or its capacity error) to that newer, stale campaign state.
+      const latestCampaignData = latestCampaignDataRef.current;
+      const latestTargetingMethod =
+        latestCampaignData.segment.audienceTargetingMethod ??
+        (latestCampaignData.segment.targetAudienceExcelFileUuid != null
+          ? 'excel'
+          : 'standard');
+      const latestIsSmartTargetingExecution =
+        latestTargetingMethod === 'smart_targeting' &&
+        latestCampaignData.segment.phase === 'execution';
+      const latestHasCurrentExactCapacity =
+        latestCampaignData.segment.smartTargetingSelectionDirty !== true &&
+        latestCampaignData.segment.smartTargetingScoreClassesDirty !== true &&
+        latestCampaignData.segment.smartTargetingExactCapacityRequired !==
+          true &&
+        isCurrentUsableSmartTargetingCapacity(
+          latestCampaignData.segment.smartTargetingCapacityCalculation,
+          latestCampaignData.segment.selectedTagIds,
+          latestCampaignData.segment.smartTargetingScoreClasses
+        );
+      if (
+        latestIsSmartTargetingExecution &&
+        !latestHasCurrentExactCapacity
+      ) {
+        clearDerivedPayment();
+        setError(t.exactCapacityRequiredForCostCalculation);
+        return;
+      }
 
       const totalCost = response.data?.total_cost;
       const targetMessages = response.data?.msg_target;

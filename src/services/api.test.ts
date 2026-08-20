@@ -216,6 +216,26 @@ describe('campaign creation API safety', () => {
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBeUndefined();
   });
 
+  it('retrieves the current execution calculation without a calculation ID', async () => {
+    const fetchMock = jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: {} }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
+    await apiService.getCurrentSmartTargetingExecutionCalculation(
+      'campaign uuid'
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/campaigns/campaign%20uuid/smart-targeting/execution-audience-calculations'
+      ),
+      expect.objectContaining({ method: 'GET', cache: 'no-store' })
+    );
+  });
+
   it('validates execution calculation IDs and fetches fresh status by ID', async () => {
     const fetchMock = jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ success: true, data: {} }), {

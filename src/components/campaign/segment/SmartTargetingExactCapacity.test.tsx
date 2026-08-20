@@ -131,7 +131,7 @@ describe('SmartTargetingExactCapacity', () => {
     expect(await screen.findByText(copy.calculationInProgress)).toBeTruthy();
   });
 
-  it('keeps a historical calculation stale while a forced fresh calculation is required', async () => {
+  it('accepts a backend-current calculation even after a local invalidation', async () => {
     const props = {
       ...defaultProps(),
       forceFreshCalculation: true,
@@ -147,20 +147,19 @@ describe('SmartTargetingExactCapacity', () => {
 
     render(<SmartTargetingExactCapacity {...props} />);
 
-    expect(await screen.findByText(copy.recalculationRequired)).toBeTruthy();
     await waitFor(() =>
       expect(props.onCalculationChange).toHaveBeenCalledWith(
         expect.objectContaining({
           calculation_id: 42,
-          is_current: false,
-          recalculation_required: true,
+          is_current: true,
+          recalculation_required: false,
         }),
         'lookup'
       )
     );
   });
 
-  it('does not accept a different calculation returned by a background lookup as fresh', async () => {
+  it('accepts a different backend-current calculation returned by a lookup', async () => {
     const props = {
       ...defaultProps(),
       forceFreshCalculation: true,
@@ -180,8 +179,8 @@ describe('SmartTargetingExactCapacity', () => {
       expect(props.onCalculationChange).toHaveBeenCalledWith(
         expect.objectContaining({
           calculation_id: 43,
-          is_current: false,
-          recalculation_required: true,
+          is_current: true,
+          recalculation_required: false,
         }),
         'lookup'
       )
