@@ -197,3 +197,126 @@ describe('campaign creation API safety', () => {
     );
   });
 });
+
+describe('campaign audience click-report export API', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    Object.defineProperty(AbortSignal, 'timeout', {
+      configurable: true,
+      value: jestGlobals.fn(() => new AbortController().signal),
+    });
+    apiService.setAccessToken('access-token');
+    jestGlobals.restoreAllMocks();
+  });
+
+  it('posts one normalized campaign ID payload with auth and downloads Excel', async () => {
+    const report = new Blob(['report'], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const fetchMock = jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(report, {
+        status: 200,
+        headers: {
+          'content-type':
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'content-disposition':
+            'attachment; filename="campaign_audience_click_report.xlsx"',
+        },
+      })
+    );
+
+    const response = await apiService.exportCampaignAudienceClickReport([
+      17, 4, 17, -1,
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/campaigns/audience-click-report'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ campaign_ids: [17, 4] }),
+        headers: expect.objectContaining({
+          Authorization: 'Bearer access-token',
+          'content-type': 'application/json',
+        }),
+      })
+    );
+    expect(AbortSignal.timeout).toHaveBeenCalledWith(130000);
+    expect(response).toMatchObject({
+      success: true,
+      filename: 'campaign_audience_click_report.xlsx',
+    });
+    expect(response.blob).toBeInstanceOf(Blob);
+  });
+
+  it('does not make a request when no valid campaign IDs are supplied', async () => {
+    const fetchMock = jestGlobals.spyOn(globalThis, 'fetch');
+
+    const response = await apiService.exportCampaignAudienceClickReport([
+      0, -2,
+    ]);
+
+    expect(response).toEqual({
+      success: false,
+      message: 'CAMPAIGN_IDS_REQUIRED',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [400, 'CAMPAIGN_IDS_LIMIT_EXCEEDED', 'CAMPAIGN_IDS_LIMIT_EXCEEDED'],
+    [401, 'MISSING_CUSTOMER_ID', 'UNAUTHORIZED'],
+    [404, 'AUDIENCE_REPORT_NOT_AVAILABLE', 'AUDIENCE_REPORT_NOT_AVAILABLE'],
+    [413, 'CAMPAIGN_REPORT_TOO_LARGE', 'CAMPAIGN_REPORT_TOO_LARGE'],
+    [
+      500,
+      'CAMPAIGN_AUDIENCE_CLICK_REPORT_EXPORT_FAILED',
+      'CAMPAIGN_AUDIENCE_CLICK_REPORT_EXPORT_FAILED',
+    ],
+  ])(
+    'normalizes HTTP %s export failures',
+    async (status, code, expectedCode) => {
+      jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ error: { code } }), {
+          status,
+          headers: { 'content-type': 'application/json' },
+        })
+      );
+
+      const response = await apiService.exportCampaignAudienceClickReport([17]);
+
+      expect(response).toEqual({ success: false, message: expectedCode });
+    }
+  );
+
+  it('rejects a successful non-Excel response as invalid', async () => {
+    jestGlobals.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('not an Excel report', {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      })
+    );
+
+    await expect(
+      apiService.exportCampaignAudienceClickReport([17])
+    ).resolves.toEqual({
+      success: false,
+      message: 'INVALID_RESPONSE',
+    });
+  });
+
+  it.each([
+    [new TypeError('Failed to fetch'), 'NETWORK_ERROR'],
+    [new DOMException('Aborted', 'AbortError'), 'TIMEOUT_ERROR'],
+    [new DOMException('Timed out', 'TimeoutError'), 'TIMEOUT_ERROR'],
+  ])('normalizes connection failures', async (error, expectedCode) => {
+    jestGlobals.spyOn(globalThis, 'fetch').mockRejectedValue(error);
+
+    await expect(
+      apiService.exportCampaignAudienceClickReport([17])
+    ).resolves.toEqual({
+      success: false,
+      message: expectedCode,
+    });
+  });
+});
