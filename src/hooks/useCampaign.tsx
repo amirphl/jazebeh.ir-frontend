@@ -1036,8 +1036,11 @@ export const CampaignProvider: React.FC<CampaignProviderProps> = ({
         (campaignData.segment.smartTargetingSelectedRawCapacity ?? 0) >= 500);
     const exactCapacityRequirementSatisfied =
       isSmartTargetingTest ||
-      campaignData.segment.smartTargetingExactCapacityRequired !== true ||
-      (campaignData.segment.smartTargetingSelectionDirty !== true &&
+      (campaignData.segment.smartTargetingExactCapacityRequired !== true &&
+        campaignData.segment.smartTargetingSelectionDirty !== true &&
+        campaignData.segment.smartTargetingScoreClassesDirty !== true &&
+        campaignData.segment.smartTargetingExactCapacityInputKey ===
+          getSmartTargetingExactCapacityInputKey(campaignData) &&
         isCurrentUsableSmartTargetingCapacity(
           campaignData.segment.smartTargetingCapacityCalculation,
           campaignData.segment.selectedTagIds,

@@ -139,6 +139,7 @@ const PaymentStep: React.FC<PaymentStepProps> = ({
     'saving',
     'requesting',
     'polling',
+    'ready',
     'committing',
   ].includes(executionReservationState);
   const reservationStatus =

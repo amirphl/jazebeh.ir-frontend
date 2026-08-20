@@ -1058,33 +1058,17 @@ const LevelStep: React.FC = () => {
         current.selectedTagIds,
         calculation?.selected_score_classes
       );
-      const freshCalculationId =
-        source === 'start' && calculation
-          ? calculation.calculation_id
-          : current.smartTargetingExactCapacityFreshCalculationId;
-      const isFreshAfterForcedRecalculation =
-        current.smartTargetingExactCapacityForceFreshCalculation !== true ||
-        (freshCalculationId !== null &&
-          calculation?.calculation_id === freshCalculationId &&
-          (source === 'start' || source === 'poll'));
       if (
         JSON.stringify(current.smartTargetingCapacityCalculation ?? null) ===
           JSON.stringify(calculation) &&
         (!calculationIsCurrent ||
-          !isFreshAfterForcedRecalculation ||
           current.smartTargetingExactCapacityRequired !== true)
       ) {
         return;
       }
       updateLevel({
         smartTargetingCapacityCalculation: calculation,
-        ...(source === 'start' && calculation
-          ? {
-              smartTargetingExactCapacityFreshCalculationId:
-                calculation.calculation_id,
-            }
-          : {}),
-        ...(calculationIsCurrent && isFreshAfterForcedRecalculation
+        ...(calculationIsCurrent
           ? {
               smartTargetingExactCapacityRequired: false,
               smartTargetingExactCapacityForceFreshCalculation: false,
@@ -1576,18 +1560,6 @@ const LevelStep: React.FC = () => {
               calculationRequiredByServer={
                 campaignData.segment.smartTargetingExactCapacityRequired ===
                 true
-              }
-              forceFreshCalculation={
-                campaignData.segment.smartTargetingExactCapacityForceFreshCalculation ===
-                true
-              }
-              invalidatedCalculationId={
-                campaignData.segment
-                  .smartTargetingExactCapacityInvalidatedCalculationId
-              }
-              freshCalculationId={
-                campaignData.segment
-                  .smartTargetingExactCapacityFreshCalculationId
               }
               canCreateCampaign={campaignValidation.isStepCompleted(1)}
               preserveSelectionOrder={isSmartTargetingTest}

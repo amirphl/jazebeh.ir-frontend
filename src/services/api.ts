@@ -1358,6 +1358,26 @@ class ApiService {
     });
   }
 
+  async getCurrentSmartTargetingExecutionCalculation(
+    uuid: string,
+    signal?: AbortSignal
+  ): Promise<ApiResponse<SmartTargetingExecutionCalculationResponse>> {
+    if (!uuid || typeof uuid !== 'string' || !uuid.trim()) {
+      return this.createErrorResponse('INVALID_CAMPAIGN_UUID');
+    }
+
+    const endpoint =
+      config.endpoints.campaigns.smartTargetingExecutionAudienceCalculations.replace(
+        ':uuid',
+        encodeURIComponent(uuid.trim())
+      );
+    return this.request<SmartTargetingExecutionCalculationResponse>(endpoint, {
+      method: 'GET',
+      cache: 'no-store',
+      signal,
+    });
+  }
+
   async getSmartTargetingExecutionCalculationById(
     uuid: string,
     calculationId: number,

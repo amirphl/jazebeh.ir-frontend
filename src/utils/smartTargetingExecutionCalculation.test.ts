@@ -56,6 +56,12 @@ describe('Smart Targeting execution calculations', () => {
       true
     );
     expect(
+      isNonRetryableSmartTargetingExecutionPollError('CAMPAIGN_NOT_FOUND')
+    ).toBe(true);
+    expect(
+      isNonRetryableSmartTargetingExecutionPollError('CAMPAIGN_ACCESS_DENIED')
+    ).toBe(true);
+    expect(
       isNonRetryableSmartTargetingExecutionPollError('NETWORK_ERROR')
     ).toBe(false);
     expect(

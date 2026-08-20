@@ -28,6 +28,8 @@ import {
   UpdateSMSCampaignRequest,
 } from '../types/campaign';
 import {
+  isCurrentUsableSmartTargetingCapacity,
+  isSmartTargetingCapacityActive,
   isSmartTargetingCapacityRecalculationError,
   normalizeSmartTargetingCapacityCalculation,
 } from '../utils/smartTargetingCapacity';
@@ -55,6 +57,8 @@ const isUnknownFinalizationFailure = (errorCode: string): boolean =>
     'INVALID_RESPONSE',
     'REQUEST_FAILED',
   ].includes(errorCode);
+
+const SMART_TARGETING_CAPACITY_PENDING_MAX_RETRIES = 12;
 
 const CampaignCreationPage: React.FC = () => {
   const { t } = useTranslation();
@@ -440,21 +444,23 @@ const CampaignCreationPage: React.FC = () => {
     navigate('/dashboard');
   }, [language, navigate, resetCampaign, showSuccess]);
 
-  const restartExecutionReservation = React.useCallback(
+  const returnToExactCapacity = React.useCallback(
     (message: string) => {
       executionReservationAbortRef.current?.abort();
       executionReservationAbortRef.current = null;
       const current = campaignDataRef.current;
       updateLevel({
-        smartTargetingExecutionReservation: {
-          phase: 'failed',
-          input_key: getSmartTargetingExecutionCalculationInputKey(current),
-          calculation: null,
-          error_code: 'SMART_TARGETING_EXECUTION_CALCULATION_STALE',
-          error_message: message,
-        },
+        smartTargetingExecutionReservation: null,
+        smartTargetingCapacityCalculation: null,
+        smartTargetingExactCapacityInputKey: null,
+        smartTargetingExactCapacityRequired: true,
+        smartTargetingExactCapacityForceFreshCalculation: true,
+        smartTargetingExactCapacityInvalidatedCalculationId:
+          current.segment.smartTargetingCapacityCalculation?.calculation_id ??
+          null,
+        smartTargetingExactCapacityFreshCalculationId: null,
       });
-      goToStep(4);
+      goToStep(1);
       showError(message);
     },
     [goToStep, showError, updateLevel]
@@ -472,6 +478,29 @@ const CampaignCreationPage: React.FC = () => {
         getSmartTargetingExecutionCalculationInputKey(initialCampaign);
       if (!uuid || !title) {
         showError('Campaign ID not found');
+        return;
+      }
+      const hasCurrentExactCapacity =
+        initialCampaign.segment.smartTargetingSelectionDirty !== true &&
+        initialCampaign.segment.smartTargetingScoreClassesDirty !== true &&
+        initialCampaign.segment.smartTargetingExactCapacityRequired !== true &&
+        initialCampaign.segment
+          .smartTargetingExactCapacityForceFreshCalculation !== true &&
+        initialCampaign.segment.smartTargetingExactCapacityInputKey ===
+          inputKey &&
+        isCurrentUsableSmartTargetingCapacity(
+          initialCampaign.segment.smartTargetingCapacityCalculation,
+          initialCampaign.segment.selectedTagIds,
+          initialCampaign.segment.smartTargetingScoreClasses
+        );
+      if (!hasCurrentExactCapacity) {
+        returnToExactCapacity(
+          getErrorMessage(
+            'SMART_TARGETING_EXACT_CAPACITY_REQUIRED',
+            language,
+            'Calculate the current exact Smart Targeting capacity before continuing.'
+          )
+        );
         return;
       }
       const matchesCurrentInputs = () =>
@@ -531,6 +560,75 @@ const CampaignCreationPage: React.FC = () => {
         apiService.setAccessToken(accessToken);
         if (
           resume &&
+          storedReservation?.phase === 'requesting' &&
+          !calculation
+        ) {
+          let recoveryRetries = 0;
+          while (!controller.signal.aborted && !calculation) {
+            const currentResponse =
+              await apiService.getCurrentSmartTargetingExecutionCalculation(
+                uuid,
+                controller.signal
+              );
+            if (controller.signal.aborted || stopForChangedInputs()) return;
+            const recovered = normalizeSmartTargetingExecutionCalculation(
+              currentResponse.success ? currentResponse.data : null
+            );
+            if (recovered) {
+              calculation = recovered;
+              persist(calculation, 'polling');
+              break;
+            }
+            if (
+              isSmartTargetingCapacityRecalculationError(
+                currentResponse.error?.code
+              )
+            ) {
+              returnToExactCapacity(
+                getErrorMessage(
+                  currentResponse.error?.code,
+                  language,
+                  'Calculate the current exact Smart Targeting capacity before continuing.'
+                )
+              );
+              return;
+            }
+            if (
+              isNonRetryableSmartTargetingExecutionPollError(
+                currentResponse.error?.code
+              ) ||
+              recoveryRetries >= SMART_TARGETING_CAPACITY_PENDING_MAX_RETRIES
+            ) {
+              persist(
+                null,
+                'failed',
+                currentResponse.error?.code ||
+                  'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
+                getApiErrorMessage(
+                  currentResponse,
+                  language,
+                  'The audience reservation could not be recovered. Retry to continue.'
+                )
+              );
+              return;
+            }
+            recoveryRetries += 1;
+            persist(
+              null,
+              'requesting',
+              currentResponse.error?.code ||
+                'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
+              getErrorMessage(
+                'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
+                language,
+                'The audience reservation is being recovered. Retrying automatically.'
+              )
+            );
+            await waitForNextPoll(SMART_TARGETING_EXECUTION_POLL_INTERVAL_MS);
+          }
+        }
+        if (
+          resume &&
           storedReservation?.phase === 'committing' &&
           calculation
         ) {
@@ -549,7 +647,7 @@ const CampaignCreationPage: React.FC = () => {
             return;
           }
           if (isSmartTargetingExecutionCalculationStale(refreshed)) {
-            restartExecutionReservation(
+            returnToExactCapacity(
               getErrorMessage(
                 'SMART_TARGETING_EXECUTION_CALCULATION_STALE',
                 language,
@@ -607,46 +705,157 @@ const CampaignCreationPage: React.FC = () => {
           (!resume || storedReservation?.phase === 'saving')
         ) {
           persist(null, 'saving');
-          const saveResponse = await apiService.updateCampaign(
-            uuid,
-            serializeCampaignPayload(initialCampaign, {
-              includeContent: true,
-              includeBudget: true,
-              finalize: false,
-            }),
-            controller.signal
+          const selectedTagIds = Array.from(
+            new Set(
+              (initialCampaign.segment.selectedTagIds || []).filter(
+                tagId => Number.isSafeInteger(tagId) && tagId > 0
+              )
+            )
           );
+          const selectedTagKey = [...selectedTagIds]
+            .sort((left, right) => left - right)
+            .join(',');
+          const selectionResponse =
+            await apiService.replaceCampaignSmartTargetingSelection(
+              uuid,
+              { tag_ids: selectedTagIds },
+              controller.signal
+            );
           if (controller.signal.aborted || stopForChangedInputs()) return;
-          if (!saveResponse.success) {
+          const persistedTagIds =
+            selectionResponse.data?.selected_tag_ids || [];
+          const persistedTagKey = Array.from(
+            new Set(
+              persistedTagIds.filter(
+                tagId => Number.isSafeInteger(tagId) && tagId > 0
+              )
+            )
+          )
+            .sort((left, right) => left - right)
+            .join(',');
+          if (
+            !selectionResponse.success ||
+            persistedTagKey !== selectedTagKey
+          ) {
             persist(
               null,
               'failed',
-              saveResponse.error?.code || null,
+              selectionResponse.error?.code ||
+                'SMART_TARGETING_SELECTION_INVALID',
               getApiErrorMessage(
-                saveResponse,
+                selectionResponse,
                 language,
-                'Failed to save campaign before reserving the audience'
+                'Failed to save the Smart Targeting tag selection before requesting the audience reservation.'
               )
             );
             return;
           }
+          updateLevel({
+            smartTargetingSelectionDirty: false,
+            smartTargetingSelectedRawCapacity: Math.max(
+              0,
+              selectionResponse.data?.summary?.selected_raw_capacity ?? 0
+            ),
+          });
+          // The exact-capacity result already represents these campaign
+          // inputs. Updating the full campaign here can advance the backend
+          // input revision and make the execution reservation stale before it
+          // has a chance to run. Only persist the tag selection, then request
+          // the reservation against the current exact-capacity snapshot.
         }
 
         if (!calculation) {
           persist(null, 'requesting');
-          const response =
+          let capacityPendingRetries = 0;
+          let response =
             await apiService.startSmartTargetingExecutionCalculation(
               uuid,
               controller.signal
             );
           if (controller.signal.aborted || stopForChangedInputs()) return;
+          while (
+            response.error?.code === 'SMART_TARGETING_CAPACITY_PENDING' &&
+            !controller.signal.aborted
+          ) {
+            if (
+              capacityPendingRetries >=
+              SMART_TARGETING_CAPACITY_PENDING_MAX_RETRIES
+            ) {
+              updateLevel({
+                smartTargetingExecutionReservation: null,
+                smartTargetingExactCapacityRequired: true,
+              });
+              goToStep(1);
+              showError(
+                getErrorMessage(
+                  'SMART_TARGETING_CAPACITY_PENDING',
+                  language,
+                  'Exact capacity is still calculating. Continue from Segment once it finishes.'
+                )
+              );
+              return;
+            }
+            capacityPendingRetries += 1;
+            persist(
+              null,
+              'requesting',
+              response.error.code,
+              getErrorMessage(
+                'SMART_TARGETING_CAPACITY_PENDING',
+                language,
+                'Preparing the required audience snapshot. Retrying automatically.'
+              )
+            );
+            await waitForNextPoll(SMART_TARGETING_EXECUTION_POLL_INTERVAL_MS);
+            if (controller.signal.aborted || stopForChangedInputs()) return;
+            const capacityResponse =
+              await apiService.getCurrentSmartTargetingCapacityCalculation(
+                uuid,
+                controller.signal
+              );
+            if (controller.signal.aborted || stopForChangedInputs()) return;
+            const capacity = normalizeSmartTargetingCapacityCalculation(
+              capacityResponse.success ? capacityResponse.data : null
+            );
+            if (capacity) {
+              updateLevel({
+                smartTargetingCapacityCalculation: capacity,
+                smartTargetingExactCapacityRequired: true,
+              });
+            }
+            if (capacity && isSmartTargetingCapacityActive(capacity)) {
+              continue;
+            }
+            if (
+              capacity &&
+              !isCurrentUsableSmartTargetingCapacity(
+                capacity,
+                initialCampaign.segment.selectedTagIds,
+                initialCampaign.segment.smartTargetingScoreClasses
+              )
+            ) {
+              returnToExactCapacity(
+                getErrorMessage(
+                  'SMART_TARGETING_EXACT_CAPACITY_REQUIRED',
+                  language,
+                  'The exact capacity result is no longer usable. Recalculate it before continuing.'
+                )
+              );
+              return;
+            }
+            response = await apiService.startSmartTargetingExecutionCalculation(
+              uuid,
+              controller.signal
+            );
+            if (controller.signal.aborted || stopForChangedInputs()) return;
+          }
           calculation = normalizeSmartTargetingExecutionCalculation(
             response.success ? response.data : response.error?.details
           );
           if (!calculation) {
             const errorCode = response.error?.code || '';
             if (isSmartTargetingCapacityRecalculationError(errorCode)) {
-              restartExecutionReservation(
+              returnToExactCapacity(
                 getErrorMessage(
                   errorCode,
                   language,
@@ -673,7 +882,7 @@ const CampaignCreationPage: React.FC = () => {
         while (!controller.signal.aborted) {
           if (stopForChangedInputs()) return;
           if (isSmartTargetingExecutionCalculationStale(calculation)) {
-            restartExecutionReservation(
+            returnToExactCapacity(
               getErrorMessage(
                 'SMART_TARGETING_EXECUTION_CALCULATION_STALE',
                 language,
@@ -716,7 +925,7 @@ const CampaignCreationPage: React.FC = () => {
                 )
               ) {
                 persist(
-                  calculation,
+                  null,
                   'failed',
                   confirmationResponse.error?.code || null,
                   getApiErrorMessage(
@@ -761,7 +970,7 @@ const CampaignCreationPage: React.FC = () => {
             if (!finalResponse.success) {
               const errorCode = finalResponse.error?.code || '';
               if (isSmartTargetingCapacityRecalculationError(errorCode)) {
-                restartExecutionReservation(
+                returnToExactCapacity(
                   getErrorMessage(
                     errorCode,
                     language,
@@ -802,7 +1011,7 @@ const CampaignCreationPage: React.FC = () => {
                 return;
               }
               if (isSmartTargetingExecutionCalculationStale(refreshed)) {
-                restartExecutionReservation(
+                returnToExactCapacity(
                   getErrorMessage(
                     'SMART_TARGETING_EXECUTION_CALCULATION_STALE',
                     language,
@@ -853,7 +1062,7 @@ const CampaignCreationPage: React.FC = () => {
                 continue;
               }
               persist(
-                calculation,
+                null,
                 'failed',
                 errorCode,
                 getApiErrorMessage(
@@ -893,7 +1102,7 @@ const CampaignCreationPage: React.FC = () => {
               )
             ) {
               persist(
-                calculation,
+                null,
                 'failed',
                 pollResponse.error?.code || null,
                 getApiErrorMessage(
@@ -945,8 +1154,9 @@ const CampaignCreationPage: React.FC = () => {
     [
       accessToken,
       completeCampaignSuccessfully,
+      goToStep,
       language,
-      restartExecutionReservation,
+      returnToExactCapacity,
       showError,
       updateLevel,
     ]
@@ -994,21 +1204,6 @@ const CampaignCreationPage: React.FC = () => {
             'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
             language,
             'Reservation recovery needs to be retried.'
-          ),
-        },
-      });
-      return;
-    }
-    if (reservation.phase === 'requesting' && !reservation.calculation) {
-      updateLevel({
-        smartTargetingExecutionReservation: {
-          ...reservation,
-          phase: 'failed',
-          error_code: 'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
-          error_message: getErrorMessage(
-            'SMART_TARGETING_EXECUTION_CALCULATION_LOOKUP_FAILED',
-            language,
-            'Automatic recovery paused to avoid duplicate reservation requests. Retry to continue.'
           ),
         },
       });

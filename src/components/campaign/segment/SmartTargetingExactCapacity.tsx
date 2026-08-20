@@ -90,9 +90,6 @@ interface SmartTargetingExactCapacityProps {
   scoreClassesAreDirty: boolean;
   initialCalculation?: SmartTargetingCapacityCalculationResponse | null;
   calculationRequiredByServer?: boolean;
-  forceFreshCalculation?: boolean;
-  invalidatedCalculationId?: number | null;
-  freshCalculationId?: number | null;
   canCreateCampaign?: boolean;
   preserveSelectionOrder?: boolean;
   selectionOrderIsPending?: boolean;
@@ -149,9 +146,6 @@ const SmartTargetingExactCapacity: React.FC<
   scoreClassesAreDirty,
   initialCalculation,
   calculationRequiredByServer = false,
-  forceFreshCalculation = false,
-  invalidatedCalculationId = null,
-  freshCalculationId = null,
   canCreateCampaign = false,
   preserveSelectionOrder = false,
   selectionOrderIsPending = false,
@@ -237,38 +231,14 @@ const SmartTargetingExactCapacity: React.FC<
       next: SmartTargetingCapacityCalculationResponse | null,
       source: CalculationUpdateSource = 'lookup'
     ) => {
-      const isFreshUserCalculation =
-        source === 'start' ||
-        (source === 'poll' &&
-          freshCalculationId !== null &&
-          next?.calculation_id === freshCalculationId);
-      const isInvalidatedHistoricalCalculation =
-        invalidatedCalculationId !== null &&
-        next?.calculation_id === invalidatedCalculationId;
-      const mustRemainStale =
-        forceFreshCalculation &&
-        next !== null &&
-        !isSmartTargetingCapacityActive(next) &&
-        (!isFreshUserCalculation || isInvalidatedHistoricalCalculation);
-      const committed =
-        next && mustRemainStale
-          ? {
-              ...next,
-              status: 'recalculation_required',
-              is_current: false,
-              recalculation_required: true,
-            }
-          : next;
-      calculationRef.current = committed;
-      setCalculation(committed);
-      onCalculationChange(committed, source);
+      // The backend owns capacity freshness. In particular, it may reuse a
+      // current calculated result for an equivalent request; do not locally
+      // downgrade that result based on an earlier invalidation marker.
+      calculationRef.current = next;
+      setCalculation(next);
+      onCalculationChange(next, source);
     },
-    [
-      forceFreshCalculation,
-      freshCalculationId,
-      invalidatedCalculationId,
-      onCalculationChange,
-    ]
+    [onCalculationChange]
   );
 
   const markCalculationStale = useCallback(() => {
