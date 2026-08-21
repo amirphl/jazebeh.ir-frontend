@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { AdminShortLinkUploadJobDTO } from '../types/admin';
 import { useTranslation } from '../hooks/useTranslation';
 import { useLanguage } from '../hooks/useLanguage';
 import { useNavigation } from '../contexts/NavigationContext';
@@ -21,6 +22,9 @@ const AdminShortLinkManagementPage: React.FC = () => {
     'idle'
   );
   const [uploadedScenarioId, setUploadedScenarioId] = useState<number | null>(
+    null
+  );
+  const [uploadJob, setUploadJob] = useState<AdminShortLinkUploadJobDTO | null>(
     null
   );
   const [scenarioId, setScenarioId] = useState<string>('');
@@ -50,12 +54,55 @@ const AdminShortLinkManagementPage: React.FC = () => {
   const [downloadByNameType, setDownloadByNameType] = useState<
     'idle' | 'success' | 'error'
   >('idle');
+  const uploadJobId = uploadJob?.id;
+  const uploadJobStatus = uploadJob?.status;
+
+  useEffect(() => {
+    if (
+      !uploadJobId ||
+      (uploadJobStatus && ['completed', 'failed'].includes(uploadJobStatus))
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const poll = async () => {
+      const resp = await adminApi.getShortLinkUploadStatus(uploadJobId);
+      if (cancelled) return;
+      if (resp.success && resp.data) {
+        setUploadJob(resp.data);
+        if (resp.data.status === 'completed') {
+          setStatusMessage(t('adminShortLinks.messages.completed'));
+          setStatusType('success');
+        } else if (resp.data.status === 'failed') {
+          setStatusMessage(
+            resp.data.last_error ||
+              t('adminShortLinks.messages.processingFailed')
+          );
+          setStatusType('error');
+        }
+      } else {
+        setStatusMessage(
+          resp.message || t('adminShortLinks.messages.statusError')
+        );
+        setStatusType('error');
+      }
+    };
+
+    const timer = window.setInterval(poll, 2500);
+    poll();
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [t, uploadJobId, uploadJobStatus]);
 
   const onSubmit: React.FormEventHandler<HTMLFormElement> = async e => {
     e.preventDefault();
     setStatusMessage('');
     setStatusType('idle');
     setUploadedScenarioId(null);
+    setUploadJob(null);
 
     if (!file) {
       setStatusMessage(t('adminShortLinks.messages.validationFileRequired'));
@@ -78,13 +125,12 @@ const AdminShortLinkManagementPage: React.FC = () => {
         selectedDomain,
         scenarioName
       );
-      if (resp.success) {
-        const id =
-          typeof resp.data?.scenario_id === 'number'
-            ? resp.data.scenario_id
-            : parseInt(String(resp.data?.scenario_id || ''), 10);
-        if (!isNaN(id)) setUploadedScenarioId(id);
-        setStatusMessage(resp.message || t('adminShortLinks.messages.success'));
+      if (resp.success && resp.data) {
+        setUploadedScenarioId(resp.data.scenario_id);
+        setUploadJob(resp.data.job);
+        setStatusMessage(
+          resp.message || t('adminShortLinks.messages.uploadStarted')
+        );
         setStatusType('success');
       } else {
         setStatusMessage(resp.message || t('adminShortLinks.messages.error'));
@@ -453,6 +499,36 @@ const AdminShortLinkManagementPage: React.FC = () => {
         {uploadedScenarioId !== null && (
           <div className='text-sm text-gray-700'>
             {t('adminShortLinks.result.scenarioId', { id: uploadedScenarioId })}
+          </div>
+        )}
+
+        {uploadJob && (
+          <div className='rounded border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 space-y-1'>
+            <div className='font-medium'>
+              {t('adminShortLinks.result.jobStatus', {
+                status: uploadJob.status,
+              })}
+            </div>
+            <div>
+              {t('adminShortLinks.result.progress', {
+                created: uploadJob.created,
+                skipped: uploadJob.skipped,
+                published: uploadJob.published,
+                total: uploadJob.total_rows,
+              })}
+            </div>
+            <div>
+              {t('adminShortLinks.result.attempts', {
+                count: uploadJob.attempts,
+              })}
+            </div>
+            {uploadJob.last_error && (
+              <div className='text-red-600'>
+                {t('adminShortLinks.result.lastError', {
+                  error: uploadJob.last_error,
+                })}
+              </div>
+            )}
           </div>
         )}
       </form>

@@ -35,6 +35,8 @@ import {
   AdminPreviewWalletChargeImpactRequest,
   AdminPreviewWalletChargeImpactResponse,
   AdminListCustomersResponse,
+  AdminCreateShortLinksResponse,
+  AdminShortLinkUploadJobDTO,
 } from '../types/admin';
 
 // Separate storage keys to avoid clash with normal user tokens
@@ -1350,60 +1352,49 @@ class AdminApiService {
     }
   }
 
-  // NEW: Upload short links CSV (no retries, single request)
+  // Creates an upload job. The API returns 202 while it is being processed.
   async uploadShortLinksCSV(
     file: File,
     shortLinkDomain: string,
     scenarioName: string
-  ): Promise<ApiResponse<any>> {
-    const url = getApiUrl('/admin/short-links/upload-csv');
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      form.append('short_link_domain', shortLinkDomain);
-      form.append('scenario_name', scenarioName);
-      const resp = await fetch(url, {
+  ): Promise<ApiResponse<AdminCreateShortLinksResponse>> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('short_link_domain', shortLinkDomain);
+    form.append('scenario_name', scenarioName.trim());
+
+    const response = await this.requestJson<AdminCreateShortLinksResponse>(
+      '/admin/short-links/upload-csv',
+      {
         method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          ...(this.getAccessToken()
-            ? { Authorization: `Bearer ${this.getAccessToken()}` }
-            : {}),
-        },
+        headers: this.getAdminAuthHeaders('none'),
         body: form,
-        // Uploads can be large; allow up to 5 minutes to match backend limits
-        signal: AbortSignal.timeout(300000),
-      });
-      if (resp.status === 401) {
-        this.handleUnauthorized();
-        return {
-          success: false,
-          message: 'Unauthorized',
-          error: { code: 'UNAUTHORIZED', details: null },
-        } as any;
-      }
-      const data = await resp.json();
-      if (resp.status === 201 || resp.ok) {
-        return {
-          success: true,
-          message: data?.message || 'Short links created',
-          data: data?.data,
-        } as any;
-      }
-      const errorMessage =
-        data?.message || data?.error?.code || `HTTP ${resp.status}`;
-      return {
-        success: false,
-        message: errorMessage,
-        error: data?.error,
-      } as any;
-    } catch (e) {
-      return {
-        success: false,
-        message: 'An error occurred',
-        error: { code: 'NETWORK_ERROR', details: null },
-      } as any;
+      },
+      // Uploads can be large; allow up to 5 minutes to match backend limits.
+      { timeoutMs: 300000 }
+    );
+
+    if (response.success && !response.data?.job?.id) {
+      return this.createErrorResponse('INVALID_RESPONSE');
     }
+
+    return response;
+  }
+
+  async getShortLinkUploadStatus(
+    jobId: string
+  ): Promise<ApiResponse<AdminShortLinkUploadJobDTO>> {
+    const response = await this.requestJson<AdminShortLinkUploadJobDTO>(
+      `/admin/short-links/upload-csv/${encodeURIComponent(jobId)}`,
+      { headers: this.getAdminAuthHeaders('none') },
+      { timeoutMs: 30000 }
+    );
+
+    if (response.success && !response.data?.id) {
+      return this.createErrorResponse('INVALID_RESPONSE');
+    }
+
+    return response;
   }
 }
 

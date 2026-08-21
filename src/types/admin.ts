@@ -1,5 +1,27 @@
 // Admin-specific types
 
+export interface AdminShortLinkUploadJobDTO {
+  id: string;
+  scenario_id: number;
+  status: string;
+  total_rows: number;
+  created: number;
+  skipped: number;
+  published: number;
+  attempts: number;
+  next_attempt_at?: string | null;
+  last_error?: string | null;
+}
+
+export interface AdminCreateShortLinksResponse {
+  message: string;
+  total_rows: number;
+  created: number;
+  skipped: number;
+  scenario_id: number;
+  job: AdminShortLinkUploadJobDTO;
+}
+
 export interface AdminDTO {
   id: number;
   uuid: string;

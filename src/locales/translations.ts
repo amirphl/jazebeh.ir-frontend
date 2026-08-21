@@ -151,8 +151,8 @@ export const translations = {
       form: {
         domainLabel: 'Short link domain',
         fileLabel: 'CSV file',
-        scenarioNameLabel: 'Scenario Name (optional)',
-        scenarioNamePlaceholder: 'Enter a scenario name (optional)',
+        scenarioNameLabel: 'Scenario Name',
+        scenarioNamePlaceholder: 'Enter a scenario name',
         selectPlaceholder: 'Select a domain',
         upload: 'Upload CSV',
         uploading: 'Uploading…',
@@ -163,12 +163,21 @@ export const translations = {
       },
       messages: {
         success: 'Short links created successfully',
+        uploadStarted: 'Short link upload started',
+        completed: 'Short link upload completed',
+        processingFailed: 'Short link upload failed',
+        statusError: 'Unable to retrieve upload status',
         error: 'Failed to create short links',
         validationFileRequired: 'Please choose a CSV file',
         validationScenarioNameRequired: 'Please enter a scenario name',
       },
       result: {
         scenarioId: 'Scenario ID: {id}',
+        jobStatus: 'Upload status: {status}',
+        progress:
+          'Created: {created}, skipped: {skipped}, published: {published} of {total}',
+        attempts: 'Attempts: {count}',
+        lastError: 'Error: {error}',
       },
       download: {
         title: 'Download Short Links by Scenario',
@@ -886,8 +895,8 @@ export const translations = {
       form: {
         domainLabel: 'دامنه لینک کوتاه',
         fileLabel: 'فایل CSV',
-        scenarioNameLabel: 'نام سناریو (اختیاری)',
-        scenarioNamePlaceholder: 'نام سناریو را وارد کنید (اختیاری)',
+        scenarioNameLabel: 'نام سناریو',
+        scenarioNamePlaceholder: 'نام سناریو را وارد کنید',
         selectPlaceholder: 'انتخاب دامنه',
         upload: 'آپلود CSV',
         uploading: 'در حال آپلود…',
@@ -898,12 +907,21 @@ export const translations = {
       },
       messages: {
         success: 'لینک‌های کوتاه با موفقیت ایجاد شد',
+        uploadStarted: 'آپلود لینک‌های کوتاه آغاز شد',
+        completed: 'آپلود لینک‌های کوتاه تکمیل شد',
+        processingFailed: 'آپلود لینک‌های کوتاه ناموفق بود',
+        statusError: 'دریافت وضعیت آپلود ممکن نیست',
         error: 'ایجاد لینک‌های کوتاه ناموفق بود',
         validationFileRequired: 'لطفاً فایل CSV را انتخاب کنید',
         validationScenarioNameRequired: 'لطفاً نام سناریو را وارد کنید',
       },
       result: {
         scenarioId: 'شناسه سناریو: {id}',
+        jobStatus: 'وضعیت آپلود: {status}',
+        progress:
+          'ایجادشده: {created}، ردشده: {skipped}، منتشرشده: {published} از {total}',
+        attempts: 'تعداد تلاش‌ها: {count}',
+        lastError: 'خطا: {error}',
       },
       download: {
         title: 'دانلود لینک‌های کوتاه بر اساس سناریو',
