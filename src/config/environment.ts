@@ -48,6 +48,7 @@ export interface EnvironmentConfig {
       smartTargetingExecutionAudienceCalculationById: string;
       smartTargetingTestSamplingPreview: string;
       smartTargetingTestSamplingPreviewById: string;
+      actionMetrics: string;
     };
     bundles: {
       list: string;
@@ -58,6 +59,11 @@ export interface EnvironmentConfig {
       tagEvaluationStatus: string;
       tagScores: string;
       smartTargetingTags: string;
+      actionFiles: string;
+      actionFileTemplate: string;
+      actionFile: string;
+      actionSummary: string;
+      actionTagMetrics: string;
     };
     wallet: {
       balance: string;
@@ -167,6 +173,7 @@ const localConfig: EnvironmentConfig = {
         '/campaigns/:uuid/smart-targeting/test-sampling-preview',
       smartTargetingTestSamplingPreviewById:
         '/campaigns/:uuid/smart-targeting/test-sampling-preview/:calculation_id',
+      actionMetrics: '/campaigns/:uuid/action-metrics',
     },
     bundles: {
       list: '/bundles',
@@ -177,6 +184,11 @@ const localConfig: EnvironmentConfig = {
       tagEvaluationStatus: '/bundles/:id/tag-evaluation',
       tagScores: '/bundles/:id/tag-scores',
       smartTargetingTags: '/bundles/:id/smart-targeting/tags',
+      actionFiles: '/bundles/:id/action-files',
+      actionFileTemplate: '/bundles/:id/action-files/template',
+      actionFile: '/bundles/:id/action-files/:fileId',
+      actionSummary: '/bundles/:id/action-summary',
+      actionTagMetrics: '/bundles/:id/action-tag-metrics',
     },
     wallet: {
       balance: '/wallet/balance',
