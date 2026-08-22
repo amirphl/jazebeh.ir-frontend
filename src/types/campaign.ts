@@ -15,7 +15,9 @@ export type SmartTargetingSortBy =
   | 'tag_capacity'
   | 'bundle_persona_fit_score'
   | 'test_phase_avg_ctr'
-  | 'overall_avg_ctr';
+  | 'overall_avg_ctr'
+  | 'test_phase_avg_atr'
+  | 'overall_avg_atr';
 export type SmartTargetingSortDirection = 'asc' | 'desc';
 
 export interface CampaignSegment {
@@ -401,7 +403,20 @@ export interface SmartTargetingTagItem {
   click_count: number | null;
   test_campaign_ctr: number | null;
   overall_avg_ctr: number | null;
+  test_phase_avg_atr: number | null;
+  overall_avg_atr: number | null;
   selected: boolean;
+}
+
+export interface CampaignActionMetric {
+  campaign_id: number;
+  action_count: number;
+  eligible_delivered_count: number;
+  campaign_atr: number | null;
+}
+
+export interface ExportCampaignAudienceReportRequest {
+  campaign_ids: number[];
 }
 
 export interface SmartTargetingSelectionSummary {
