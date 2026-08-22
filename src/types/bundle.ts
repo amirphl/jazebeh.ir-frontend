@@ -159,3 +159,63 @@ export interface BundleCreateFormErrors {
   description?: string;
   link?: string;
 }
+
+export type BundleActionFileStatus =
+  | 'pending'
+  | 'processing'
+  | 'processed'
+  | 'failed'
+  | 'delete_pending'
+  | 'deleted';
+
+export interface BundleActionFileItem {
+  id: number;
+  original_file_name: string;
+  action_level: string;
+  status: BundleActionFileStatus;
+  total_row_count: number;
+  unique_uid_count: number;
+  new_action_uid_count: number;
+  duplicate_in_file_count: number;
+  duplicate_in_other_files_count: number;
+  invalid_uid_count: number;
+  outside_bundle_count: number;
+  unassigned_tag_count: number;
+  missing_delivery_count: number;
+  eligible_action_uid_count: number;
+  error_code?: string | null;
+  error_message?: string | null;
+  created_at: string;
+  processed_at?: string | null;
+}
+export interface BundleActionFilesPagination {
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+}
+export interface BundleActionFilesResponse {
+  items: BundleActionFileItem[];
+  pagination: BundleActionFilesPagination;
+}
+export interface BundleActionFilesQuery {
+  page?: number;
+  limit?: number;
+}
+export interface BundleActionSummary {
+  bundle_id: number;
+  has_active_action_files: boolean;
+  action_count: number;
+  eligible_delivered_count: number;
+  bundle_avg_atr: number | null;
+  updated_at: string;
+}
+export interface BundleActionTagMetric {
+  tag_id: number;
+  test_action_count: number;
+  test_eligible_delivered_count: number;
+  test_phase_avg_atr: number | null;
+  overall_action_count: number;
+  overall_eligible_delivered_count: number;
+  overall_avg_atr: number | null;
+}
