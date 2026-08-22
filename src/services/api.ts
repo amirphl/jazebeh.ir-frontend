@@ -17,7 +17,9 @@ import {
   SendCampaignTestMessageRequest,
   SendCampaignTestMessageResponse,
   AutoSelectSmartTargetingTagsRequest,
+  CampaignActionMetric,
   ListSmartTargetingTagsParams,
+  ExportCampaignAudienceReportRequest,
   ListSmartTargetingTagsResponse,
   ListSMSCampaignsParams,
   ListSMSCampaignsResponse,
@@ -41,6 +43,11 @@ import {
   RequestBundleTagEvaluationResponse,
   UpdateBundleRequest,
   UpdateBundleResponse,
+  BundleActionFileItem,
+  BundleActionFilesQuery,
+  BundleActionFilesResponse,
+  BundleActionSummary,
+  BundleActionTagMetric,
 } from '../types/bundle';
 import {
   CreatePlatformSettingsRequest,
@@ -947,6 +954,141 @@ class ApiService {
     });
   }
 
+  async downloadBundleActionFileTemplate(
+    bundleId: number
+  ): Promise<BinaryApiResponse> {
+    if (!Number.isInteger(bundleId) || bundleId <= 0)
+      return { success: false, message: 'INVALID_BUNDLE_ID' };
+    const endpoint = config.endpoints.bundles.actionFileTemplate.replace(
+      ':id',
+      encodeURIComponent(String(bundleId))
+    );
+    return this.requestBinary(endpoint, {
+      expectedContentType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+  }
+
+  async uploadBundleActionFile(
+    bundleId: number,
+    file: File,
+    actionLevel: string
+  ): Promise<ApiResponse<BundleActionFileItem>> {
+    if (!Number.isInteger(bundleId) || bundleId <= 0)
+      return this.createErrorResponse('INVALID_BUNDLE_ID');
+    if (!(file instanceof File))
+      return this.createErrorResponse('ACTION_FILE_REQUIRED');
+    const form = new FormData();
+    form.append('file', file);
+    form.append('action_level', actionLevel);
+    const endpoint = config.endpoints.bundles.actionFiles.replace(
+      ':id',
+      encodeURIComponent(String(bundleId))
+    );
+    return this.request<BundleActionFileItem>(endpoint, {
+      method: 'POST',
+      body: form,
+      timeoutMs: 60000,
+    });
+  }
+
+  async listBundleActionFiles(
+    bundleId: number,
+    query: BundleActionFilesQuery = {},
+    signal?: AbortSignal
+  ): Promise<ApiResponse<BundleActionFilesResponse>> {
+    if (!Number.isInteger(bundleId) || bundleId <= 0)
+      return this.createErrorResponse('INVALID_BUNDLE_ID');
+    const page =
+      Number.isInteger(query.page) && (query.page as number) > 0
+        ? (query.page as number)
+        : 1;
+    const limit =
+      Number.isInteger(query.limit) &&
+      (query.limit as number) >= 1 &&
+      (query.limit as number) <= 100
+        ? (query.limit as number)
+        : 50;
+    const path = config.endpoints.bundles.actionFiles.replace(
+      ':id',
+      encodeURIComponent(String(bundleId))
+    );
+    return this.request<BundleActionFilesResponse>(
+      `${path}?page=${page}&limit=${limit}`,
+      { method: 'GET', signal }
+    );
+  }
+
+  async getBundleActionFile(
+    bundleId: number,
+    fileId: number,
+    signal?: AbortSignal
+  ): Promise<ApiResponse<BundleActionFileItem>> {
+    if (
+      !Number.isInteger(bundleId) ||
+      bundleId <= 0 ||
+      !Number.isInteger(fileId) ||
+      fileId <= 0
+    )
+      return this.createErrorResponse('INVALID_ACTION_FILE_ID');
+    const endpoint = config.endpoints.bundles.actionFile
+      .replace(':id', encodeURIComponent(String(bundleId)))
+      .replace(':fileId', encodeURIComponent(String(fileId)));
+    return this.request<BundleActionFileItem>(endpoint, {
+      method: 'GET',
+      signal,
+    });
+  }
+
+  async deleteBundleActionFile(
+    bundleId: number,
+    fileId: number
+  ): Promise<ApiResponse<void>> {
+    if (
+      !Number.isInteger(bundleId) ||
+      bundleId <= 0 ||
+      !Number.isInteger(fileId) ||
+      fileId <= 0
+    )
+      return this.createErrorResponse('INVALID_ACTION_FILE_ID');
+    const endpoint = config.endpoints.bundles.actionFile
+      .replace(':id', encodeURIComponent(String(bundleId)))
+      .replace(':fileId', encodeURIComponent(String(fileId)));
+    return this.request<void>(endpoint, { method: 'DELETE' });
+  }
+
+  async getBundleActionSummary(
+    bundleId: number,
+    signal?: AbortSignal
+  ): Promise<ApiResponse<BundleActionSummary>> {
+    if (!Number.isInteger(bundleId) || bundleId <= 0)
+      return this.createErrorResponse('INVALID_BUNDLE_ID');
+    const endpoint = config.endpoints.bundles.actionSummary.replace(
+      ':id',
+      encodeURIComponent(String(bundleId))
+    );
+    return this.request<BundleActionSummary>(endpoint, {
+      method: 'GET',
+      signal,
+    });
+  }
+
+  async getBundleActionTagMetrics(
+    bundleId: number,
+    signal?: AbortSignal
+  ): Promise<ApiResponse<BundleActionTagMetric[]>> {
+    if (!Number.isInteger(bundleId) || bundleId <= 0)
+      return this.createErrorResponse('INVALID_BUNDLE_ID');
+    const endpoint = config.endpoints.bundles.actionTagMetrics.replace(
+      ':id',
+      encodeURIComponent(String(bundleId))
+    );
+    return this.request<BundleActionTagMetric[]>(endpoint, {
+      method: 'GET',
+      signal,
+    });
+  }
+
   async createBundle(
     payload: CreateBundleRequest
   ): Promise<ApiResponse<CreateBundleResponse>> {
@@ -1530,6 +1672,22 @@ class ApiService {
     );
   }
 
+  async getCampaignActionMetrics(
+    uuid: string,
+    signal?: AbortSignal
+  ): Promise<ApiResponse<CampaignActionMetric>> {
+    if (!uuid || typeof uuid !== 'string' || !uuid.trim())
+      return this.createErrorResponse('INVALID_CAMPAIGN_UUID');
+    const endpoint = config.endpoints.campaigns.actionMetrics.replace(
+      ':uuid',
+      encodeURIComponent(uuid.trim())
+    );
+    return this.request<CampaignActionMetric>(endpoint, {
+      method: 'GET',
+      signal,
+    });
+  }
+
   async exportCampaignReport(uuid: string): Promise<{
     success: boolean;
     message: string;
@@ -1555,11 +1713,17 @@ class ApiService {
   async exportCampaignAudienceClickReport(
     campaignIds: number[]
   ): Promise<BinaryApiResponse> {
+    return this.exportCampaignAudienceReport({ campaign_ids: campaignIds });
+  }
+  async exportCampaignAudienceReport(
+    request: ExportCampaignAudienceReportRequest
+  ): Promise<BinaryApiResponse> {
     const normalizedCampaignIds = Array.from(
       new Set(
-        (Array.isArray(campaignIds) ? campaignIds : []).filter(
-          id => Number.isInteger(id) && Number.isFinite(id) && id > 0
-        )
+        (Array.isArray(request?.campaign_ids)
+          ? request.campaign_ids
+          : []
+        ).filter(id => Number.isInteger(id) && Number.isFinite(id) && id > 0)
       )
     );
 
