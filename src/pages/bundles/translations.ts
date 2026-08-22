@@ -152,6 +152,48 @@ export interface BundlesCopy {
       disabled: string;
       notAvailable: string;
     };
+    actionData: {
+      title: string;
+      description: string;
+      downloadTemplate: string;
+      uploading: string;
+      upload: string;
+      actionLevel: string;
+      actionLevelPlaceholder: string;
+      selectedFile: string;
+      files: string;
+      filename: string;
+      status: string;
+      uploadedAt: string;
+      accepted: string;
+      details: string;
+      hideDetails: string;
+      delete: string;
+      deleteConfirm: string;
+      processing: string;
+      deletePending: string;
+      processed: string;
+      deleted: string;
+      failed: string;
+      noFiles: string;
+      summary: string;
+      actionCount: string;
+      eligibleDelivered: string;
+      averageAtr: string;
+      updatedAt: string;
+      tagMetrics: string;
+      tagId: string;
+      testAtr: string;
+      overallAtr: string;
+      helper: string;
+      invalidFile: string;
+      fileTooLarge: string;
+      uploadFailed: string;
+      loadFailed: string;
+      deleteFailed: string;
+      templateFailed: string;
+      unavailable: string;
+    };
     tagEvaluation: {
       title: string;
       description: string;
@@ -349,6 +391,50 @@ const bundlesEn: BundlesCopy = {
       enabled: 'Enabled',
       disabled: 'Disabled',
       notAvailable: 'Not available',
+    },
+    actionData: {
+      title: 'Action data',
+      description: 'Upload action files and review cumulative ATR reporting.',
+      downloadTemplate: 'Download template',
+      uploading: 'Uploading…',
+      upload: 'Upload action file',
+      actionLevel: 'Action level',
+      actionLevelPlaceholder: 'Enter action level',
+      selectedFile: 'Selected file',
+      files: 'Action files',
+      filename: 'Filename',
+      status: 'Status',
+      uploadedAt: 'Uploaded',
+      accepted: 'Accepted / new UIDs',
+      details: 'Details',
+      hideDetails: 'Hide details',
+      delete: 'Delete',
+      deleteConfirm:
+        'Remove this processed action file? Its metrics remain until deletion finishes.',
+      processing: 'Processing',
+      deletePending: 'Removal processing',
+      processed: 'Processed',
+      deleted: 'Deleted',
+      failed: 'Failed',
+      noFiles: 'No action files have been uploaded.',
+      summary: 'Bundle ATR summary',
+      actionCount: 'Unique actions',
+      eligibleDelivered: 'Eligible delivered',
+      averageAtr: 'Bundle average ATR',
+      updatedAt: 'Last updated',
+      tagMetrics: 'Tag ATR metrics',
+      tagId: 'Tag',
+      testAtr: 'Test ATR',
+      overallAtr: 'Overall ATR',
+      helper:
+        'Processed files contribute cumulatively. Duplicate UIDs count once. Accepted/new UIDs may differ from eligible action UIDs used for ATR.',
+      invalidFile: 'Choose an XLSX file.',
+      fileTooLarge: 'The action file must be 50 MB or smaller.',
+      uploadFailed: 'Failed to upload action file.',
+      loadFailed: 'Failed to load action data.',
+      deleteFailed: 'Failed to delete action file.',
+      templateFailed: 'Failed to download template.',
+      unavailable: '—',
     },
     tagEvaluation: {
       title: 'Smart Tag Evaluation',
@@ -550,6 +636,51 @@ const bundlesFa: BundlesCopy = {
       enabled: 'فعال',
       disabled: 'غیرفعال',
       notAvailable: 'موجود نیست',
+    },
+    actionData: {
+      title: 'داده‌های اقدام',
+      description:
+        'فایل‌های اقدام را بارگذاری کرده و گزارش ATR تجمعی را مشاهده کنید.',
+      downloadTemplate: 'دانلود قالب',
+      uploading: 'در حال بارگذاری…',
+      upload: 'بارگذاری فایل اقدام',
+      actionLevel: 'سطح اقدام',
+      actionLevelPlaceholder: 'سطح اقدام را وارد کنید',
+      selectedFile: 'فایل انتخاب‌شده',
+      files: 'فایل‌های اقدام',
+      filename: 'نام فایل',
+      status: 'وضعیت',
+      uploadedAt: 'زمان بارگذاری',
+      accepted: 'شناسه‌های پذیرفته‌شده / جدید',
+      details: 'جزئیات',
+      hideDetails: 'پنهان کردن جزئیات',
+      delete: 'حذف',
+      deleteConfirm:
+        'این فایل اقدام پردازش‌شده حذف شود؟ معیارها تا پایان حذف باقی می‌مانند.',
+      processing: 'در حال پردازش',
+      deletePending: 'حذف در حال انجام است',
+      processed: 'پردازش شده',
+      deleted: 'حذف شده',
+      failed: 'ناموفق',
+      noFiles: 'هنوز فایلی بارگذاری نشده است.',
+      summary: 'خلاصه ATR کمپین',
+      actionCount: 'اقدام‌های یکتا',
+      eligibleDelivered: 'تحویل‌شده واجد شرایط',
+      averageAtr: 'میانگین ATR کمپین',
+      updatedAt: 'آخرین به‌روزرسانی',
+      tagMetrics: 'معیارهای ATR برچسب',
+      tagId: 'برچسب',
+      testAtr: 'ATR تست',
+      overallAtr: 'ATR کلی',
+      helper:
+        'فایل‌های پردازش‌شده به‌صورت تجمعی اثر می‌گذارند. شناسه‌های تکراری یک‌بار شمرده می‌شوند. شناسه‌های جدید پذیرفته‌شده ممکن است با شناسه‌های واجد شرایط ATR متفاوت باشند.',
+      invalidFile: 'یک فایل XLSX انتخاب کنید.',
+      fileTooLarge: 'حجم فایل اقدام باید حداکثر ۵۰ مگابایت باشد.',
+      uploadFailed: 'بارگذاری فایل اقدام ناموفق بود.',
+      loadFailed: 'دریافت داده‌های اقدام ناموفق بود.',
+      deleteFailed: 'حذف فایل اقدام ناموفق بود.',
+      templateFailed: 'دانلود قالب ناموفق بود.',
+      unavailable: '—',
     },
     tagEvaluation: {
       title: 'ارزیابی هوشمند برچسب‌ها',
