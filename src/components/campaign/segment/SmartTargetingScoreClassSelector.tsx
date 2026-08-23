@@ -56,7 +56,7 @@ const SmartTargetingScoreClassSelector: React.FC<
             key={scoreClass}
             className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
               normalizedValue.includes(scoreClass)
-                ? 'border-primary-500 bg-primary-50'
+                ? 'smart-targeting-score-class-selected border-primary-500 bg-primary-50'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >

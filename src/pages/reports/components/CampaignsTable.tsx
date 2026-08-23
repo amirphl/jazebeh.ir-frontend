@@ -282,7 +282,10 @@ const CampaignsTable: React.FC<CampaignsTableProps> = ({
                 const isClickReportEligible = Boolean(campaign.adlink?.trim());
 
                 return (
-                  <tr key={campaign.uuid} className='hover:bg-gray-50'>
+                  <tr
+                    key={campaign.uuid}
+                    className='reports-campaign-row hover:bg-gray-50'
+                  >
                     {bulkSelectionMode ? (
                       <td className={td}>
                         {campaign.id ? (

@@ -158,6 +158,9 @@ body {
   background-color: #0f172a !important;
 }
 
+:root[data-theme='dark'] .reports-campaign-row:hover > td {
+  background-color: #1f2937 !important;
+}
 :root[data-theme='dark'] .payment-cost-total,
 :root[data-theme='dark'] .payment-estimated-messages {
   background-color: #172554 !important;
@@ -183,6 +186,10 @@ body {
 :root[data-theme='dark'] .payment-estimated-messages .text-blue-700,
 :root[data-theme='dark'] .payment-estimated-messages .text-blue-900 {
   color: #bfdbfe !important;
+}
+:root[data-theme='dark'] .smart-targeting-score-class-selected {
+  background-color: #172554 !important;
+  border-color: #3b82f6 !important;
 }
 :root[data-theme='dark'] .campaign-platform-option-selected {
   background-color: #172554 !important;
