@@ -10,6 +10,7 @@ import Button from '../../ui/Button';
 import { apiService } from '../../../services/api';
 import { useLanguage } from '../../../hooks/useLanguage';
 import { getApiErrorMessage } from '../../../utils/errorHandler';
+import { BUNDLE_ACTION_DATA_CHANGED } from '../../../pages/bundles/components/BundleActionDataSection';
 import {
   ListSmartTargetingTagsResponse,
   ListSmartTargetingTagsParams,
@@ -45,12 +46,16 @@ export interface SmartTargetingCopy {
     bundlePersonaFitScore: string;
     testPhaseAvgCtr: string;
     overallAvgCtr: string;
+    testPhaseAvgAtr: string;
+    overallAvgAtr: string;
   };
   sortOptions: {
     tagCapacity: string;
     bundlePersonaFitScore: string;
     testPhaseAvgCtr: string;
     overallAvgCtr: string;
+    testPhaseAvgAtr: string;
+    overallAvgAtr: string;
   };
   autoSelectLabel: string;
   autoSelectPlaceholder: string;
@@ -206,6 +211,8 @@ const normalizeRows = (items: unknown): SmartTargetingTagItem[] => {
         click_count: normalizeFiniteNumber(row.click_count),
         test_campaign_ctr: normalizeFiniteNumber(row.test_campaign_ctr),
         overall_avg_ctr: normalizeFiniteNumber(row.overall_avg_ctr),
+        test_phase_avg_atr: normalizeFiniteNumber(row.test_phase_avg_atr),
+        overall_avg_atr: normalizeFiniteNumber(row.overall_avg_atr),
         selected: row.selected === true,
       };
     })
@@ -276,6 +283,7 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoCount, setAutoCount] = useState('');
+  const [actionDataRefresh, setActionDataRefresh] = useState(0);
   const [autoError, setAutoError] = useState<string | null>(null);
   const [isAutoSelecting, setIsAutoSelecting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -341,6 +349,21 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
     setIsAutoSelecting(false);
   }, [initialSortBy, initialSortDirection, tableContextKey]);
 
+  useEffect(() => {
+    const onActionDataChange = (event: Event) => {
+      const changedBundleId = (event as CustomEvent<{ bundleId?: number }>)
+        .detail?.bundleId;
+      if (changedBundleId === bundleId)
+        setActionDataRefresh(value => value + 1);
+    };
+    window.addEventListener(BUNDLE_ACTION_DATA_CHANGED, onActionDataChange);
+    return () =>
+      window.removeEventListener(
+        BUNDLE_ACTION_DATA_CHANGED,
+        onActionDataChange
+      );
+  }, [bundleId, useCampaignEndpoints]);
+
   useEffect(
     () => () => {
       requestSeqRef.current += 1;
@@ -383,10 +406,12 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
           value: 'test_phase_avg_ctr',
           label: copy.sortOptions.testPhaseAvgCtr,
         },
+        { value: 'overall_avg_ctr', label: copy.sortOptions.overallAvgCtr },
         {
-          value: 'overall_avg_ctr',
-          label: copy.sortOptions.overallAvgCtr,
+          value: 'test_phase_avg_atr',
+          label: copy.sortOptions.testPhaseAvgAtr,
         },
+        { value: 'overall_avg_atr', label: copy.sortOptions.overallAvgAtr },
       ].filter(
         (
           item
@@ -539,7 +564,7 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
     });
 
     return () => controller.abort();
-  }, [fetchTags, refreshKey]);
+  }, [fetchTags, refreshKey, actionDataRefresh]);
 
   useEffect(() => {
     if (
@@ -1192,7 +1217,7 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
           role='region'
           aria-label={copy.title}
         >
-          <table className='w-full min-w-[1040px] divide-y divide-gray-200'>
+          <table className='w-full min-w-[1240px] divide-y divide-gray-200'>
             <thead className='sticky top-0 z-10 bg-gray-50'>
               <tr>
                 {[
@@ -1206,6 +1231,8 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
                   { label: copy.columns.bundlePersonaFitScore },
                   { label: copy.columns.testPhaseAvgCtr },
                   { label: copy.columns.overallAvgCtr },
+                  { label: copy.columns.testPhaseAvgAtr },
+                  { label: copy.columns.overallAvgAtr },
                 ].map(({ label, className }) => (
                   <th
                     key={label}
@@ -1268,6 +1295,12 @@ const SmartTargetingTagsTable: React.FC<SmartTargetingTagsTableProps> = ({
                     </td>
                     <td className='px-4 py-4 align-top text-sm text-gray-700'>
                       {formatCtr(row.overall_avg_ctr)}
+                    </td>
+                    <td className='px-4 py-4 align-top text-sm text-gray-700'>
+                      {formatCtr(row.test_phase_avg_atr)}
+                    </td>
+                    <td className='px-4 py-4 align-top text-sm text-gray-700'>
+                      {formatCtr(row.overall_avg_atr)}
                     </td>
                   </tr>
                 );
