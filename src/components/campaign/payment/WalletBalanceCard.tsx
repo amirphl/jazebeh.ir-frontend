@@ -73,8 +73,8 @@ const WalletBalanceCard: React.FC<WalletBalanceCardProps> = ({
             <div
               className={`p-4 rounded-lg border ${
                 hasEnoughBalance
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-red-50 border-red-200'
+                  ? 'payment-balance-status payment-balance-sufficient bg-green-50 border-green-200'
+                  : 'payment-balance-status payment-balance-insufficient bg-red-50 border-red-200'
               }`}
             >
               <div className='flex items-center space-x-2 mb-2'>

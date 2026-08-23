@@ -146,6 +146,10 @@ body {
   color: var(--color-muted) !important;
 }
 
+:root[data-theme='dark'] .hover\:bg-gray-50:hover {
+  background-color: #1f2937 !important;
+}
+
 :root[data-theme='dark'] .hover\:bg-gray-100:hover {
   background-color: #1f2937 !important;
 }
@@ -154,6 +158,52 @@ body {
   background-color: #0f172a !important;
 }
 
+:root[data-theme='dark'] .payment-cost-total,
+:root[data-theme='dark'] .payment-estimated-messages {
+  background-color: #172554 !important;
+  border-color: #1d4ed8 !important;
+}
+:root[data-theme='dark'] .payment-balance-sufficient {
+  background-color: #052e16 !important;
+  border-color: #166534 !important;
+}
+:root[data-theme='dark'] .payment-balance-sufficient .text-green-800 {
+  color: #bbf7d0 !important;
+}
+:root[data-theme='dark'] .payment-balance-insufficient {
+  background-color: #450a0a !important;
+  border-color: #991b1b !important;
+}
+:root[data-theme='dark'] .payment-balance-insufficient .text-red-800,
+:root[data-theme='dark'] .payment-balance-insufficient .text-red-700 {
+  color: #fecaca !important;
+}
+:root[data-theme='dark'] .payment-cost-total .text-primary-800,
+:root[data-theme='dark'] .payment-cost-total .text-primary-900,
+:root[data-theme='dark'] .payment-estimated-messages .text-blue-700,
+:root[data-theme='dark'] .payment-estimated-messages .text-blue-900 {
+  color: #bfdbfe !important;
+}
+:root[data-theme='dark'] .campaign-platform-option-selected {
+  background-color: #172554 !important;
+  border-color: #3b82f6 !important;
+}
+:root[data-theme='dark'] .toast-success {
+  background-color: #052e16 !important;
+  border-color: #166534 !important;
+}
+:root[data-theme='dark'] .toast-error {
+  background-color: #450a0a !important;
+  border-color: #991b1b !important;
+}
+:root[data-theme='dark'] .toast-warning {
+  background-color: #422006 !important;
+  border-color: #a16207 !important;
+}
+:root[data-theme='dark'] .toast-info {
+  background-color: #172554 !important;
+  border-color: #1d4ed8 !important;
+}
 :root[data-theme='dark'] a {
   color: var(--color-text);
 }

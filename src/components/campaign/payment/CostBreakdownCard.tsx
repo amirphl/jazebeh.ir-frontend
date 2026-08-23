@@ -69,7 +69,7 @@ const CostBreakdownCard: React.FC<CostBreakdownCardProps> = ({
     if (total !== undefined) {
       return (
         <>
-          <div className='flex justify-between items-center p-4 bg-primary-50 rounded-lg border border-primary-200'>
+          <div className='flex justify-between items-center p-4 payment-cost-total bg-primary-50 rounded-lg border border-primary-200'>
             <span className='text-primary-800 font-bold text-lg'>
               {totalLabel}
             </span>
@@ -79,7 +79,7 @@ const CostBreakdownCard: React.FC<CostBreakdownCardProps> = ({
           </div>
 
           {messageCount !== undefined && (
-            <div className='flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200'>
+            <div className='flex justify-between items-center p-3 payment-estimated-messages bg-blue-50 rounded-lg border border-blue-200'>
               <span className='text-blue-700 font-medium'>
                 {estimatedMessagesLabel}
               </span>

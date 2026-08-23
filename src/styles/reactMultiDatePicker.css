@@ -653,6 +653,42 @@
   display: none;
 }
 
+/* Keep the shared date picker legible when the application uses dark mode. */
+:root[data-theme='dark'] .rmdp-wrapper,
+:root[data-theme='dark'] .rmdp-month-picker,
+:root[data-theme='dark'] .rmdp-year-picker {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+:root[data-theme='dark'] .rmdp-border,
+:root[data-theme='dark'] .rmdp-border-top,
+:root[data-theme='dark'] .rmdp-border-bottom,
+:root[data-theme='dark'] .rmdp-border-left,
+:root[data-theme='dark'] .rmdp-border-right {
+  border-color: var(--color-border);
+}
+
+:root[data-theme='dark'] .rmdp-day,
+:root[data-theme='dark'] .rmdp-header-values,
+:root[data-theme='dark'] .rmdp-time-picker div .rmdp-am {
+  color: var(--color-text);
+}
+
+:root[data-theme='dark'] .rmdp-day.rmdp-deactive,
+:root[data-theme='dark'] .rmdp-day.rmdp-disabled {
+  color: var(--color-muted);
+}
+
+@media (hover: hover) {
+  :root[data-theme='dark']
+    .rmdp-day:not(.rmdp-disabled, .rmdp-day-hidden)
+    span:hover {
+    background-color: #334155;
+    color: var(--color-text);
+  }
+}
+
 @media (max-height: 450px), (max-width: 450px) {
   .rmdp-day,
   .rmdp-week-day {
