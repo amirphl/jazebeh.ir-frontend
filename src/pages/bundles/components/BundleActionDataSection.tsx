@@ -18,6 +18,7 @@ import { BundlesCopy } from '../translations';
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const POLL_MS = 8000;
+const ACTION_LEVELS = ['1', '2', '3', '4'] as const;
 const pending = (status: BundleActionFileItem['status']) =>
   status === 'pending' ||
   status === 'processing' ||
@@ -42,6 +43,12 @@ const BundleActionDataSection: React.FC<{
   copy: BundlesCopy;
 }> = ({ bundleId, copy }) => {
   const labels = copy.detailPage.actionData;
+  const actionLevelOptions = [
+    { value: '1', label: labels.actionLevel1 },
+    { value: '2', label: labels.actionLevel2 },
+    { value: '3', label: labels.actionLevel3 },
+    { value: '4', label: labels.actionLevel4 },
+  ];
   const { accessToken } = useAuth();
   const [files, setFiles] = useState<BundleActionFileItem[]>([]);
   const [summary, setSummary] = useState<BundleActionSummary | null>(null);
@@ -160,6 +167,12 @@ const BundleActionDataSection: React.FC<{
       setError(labels.fileTooLarge);
       return;
     }
+    if (
+      !ACTION_LEVELS.includes(actionLevel as (typeof ACTION_LEVELS)[number])
+    ) {
+      setError(labels.actionLevelRequired);
+      return;
+    }
     if (!accessToken) return;
     setUploading(true);
     setError(null);
@@ -262,14 +275,25 @@ const BundleActionDataSection: React.FC<{
             setError(null);
           }}
         />
-        <input
+        <select
           aria-label={labels.actionLevel}
           value={actionLevel}
           disabled={uploading}
-          onChange={event => setActionLevel(event.target.value)}
-          placeholder={labels.actionLevelPlaceholder}
+          onChange={event => {
+            setActionLevel(event.target.value);
+            setError(null);
+          }}
           className='rounded-md border border-gray-300 px-3 py-2 text-sm'
-        />
+        >
+          <option value='' disabled>
+            {labels.actionLevelPlaceholder}
+          </option>
+          {actionLevelOptions.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
         <Button onClick={upload} disabled={uploading}>
           {uploading ? labels.uploading : labels.upload}
         </Button>

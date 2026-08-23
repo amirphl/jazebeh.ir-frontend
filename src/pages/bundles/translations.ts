@@ -160,6 +160,11 @@ export interface BundlesCopy {
       upload: string;
       actionLevel: string;
       actionLevelPlaceholder: string;
+      actionLevel1: string;
+      actionLevel2: string;
+      actionLevel3: string;
+      actionLevel4: string;
+      actionLevelRequired: string;
       selectedFile: string;
       files: string;
       filename: string;
@@ -399,7 +404,12 @@ const bundlesEn: BundlesCopy = {
       uploading: 'Uploading…',
       upload: 'Upload action file',
       actionLevel: 'Action level',
-      actionLevelPlaceholder: 'Enter action level',
+      actionLevelPlaceholder: 'Select action level',
+      actionLevel1: 'Level 1',
+      actionLevel2: 'Level 2',
+      actionLevel3: 'Level 3',
+      actionLevel4: 'Level 4',
+      actionLevelRequired: 'Select an action level.',
       selectedFile: 'Selected file',
       files: 'Action files',
       filename: 'Filename',
@@ -645,7 +655,12 @@ const bundlesFa: BundlesCopy = {
       uploading: 'در حال بارگذاری…',
       upload: 'بارگذاری فایل اکشن',
       actionLevel: 'سطح اکشن',
-      actionLevelPlaceholder: 'سطح اکشن را وارد کنید',
+      actionLevelPlaceholder: 'سطح اکشن را انتخاب کنید',
+      actionLevel1: 'سطح ۱',
+      actionLevel2: 'سطح ۲',
+      actionLevel3: 'سطح ۳',
+      actionLevel4: 'سطح ۴',
+      actionLevelRequired: 'یک سطح اکشن انتخاب کنید.',
       selectedFile: 'فایل انتخاب‌شده',
       files: 'فایل‌های اکشن',
       filename: 'نام فایل',
