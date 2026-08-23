@@ -185,6 +185,8 @@ describe('SmartTargetingTagsTable', () => {
       copy.columns.bundlePersonaFitScore,
       copy.columns.testPhaseAvgCtr,
       copy.columns.overallAvgCtr,
+      copy.columns.testPhaseAvgAtr,
+      copy.columns.overallAvgAtr,
     ]);
 
     const indicator = screen.getByLabelText(copy.usedInBundleTooltip);
