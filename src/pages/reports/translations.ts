@@ -227,6 +227,10 @@ export interface ReportsTranslations {
     exportUnauthorized: string;
     exportForbidden: string;
     exportNotFound: string;
+    actionAtr: string;
+    actionCount: string;
+    eligibleDelivered: string;
+    campaignAtr: string;
     exportClickReport: string;
     exportingClickReport: string;
     clickReportError: string;
@@ -318,7 +322,7 @@ export const reportsTranslations: Record<'en' | 'fa', ReportsTranslations> = {
       selectionColumn: 'Select',
       selectionCount: (count: number) =>
         `${count} campaign${count === 1 ? '' : 's'} selected`,
-      button: 'Download click report',
+      button: 'Download Campaign Audience Report',
       submitting: 'Preparing click report...',
       success: 'Click report download started.',
       ineligible:
@@ -481,8 +485,12 @@ export const reportsTranslations: Record<'en' | 'fa', ReportsTranslations> = {
       exportUnauthorized: 'You are not authorized. Please log in again.',
       exportForbidden: 'You do not have access to export this campaign report.',
       exportNotFound: 'Campaign report was not found.',
-      exportClickReport: 'Download click report',
-      exportingClickReport: 'Downloading click report...',
+      actionAtr: 'Campaign ATR',
+      actionCount: 'Action count',
+      eligibleDelivered: 'Eligible delivered',
+      campaignAtr: 'Campaign ATR',
+      exportClickReport: 'Download Campaign Audience Report',
+      exportingClickReport: 'Preparing Campaign Audience Report...',
       clickReportError: 'Failed to download campaign click report.',
       clickReportNotFound: 'Campaign click report is not available.',
       clickReportTimeout:
@@ -568,7 +576,7 @@ export const reportsTranslations: Record<'en' | 'fa', ReportsTranslations> = {
         'ارسال‌های دارای لینک ضمیمه‌شده را برای دریافت یک گزارش یکپارچه انتخاب کنید.',
       selectionColumn: 'انتخاب',
       selectionCount: (count: number) => `${count} ارسال انتخاب شده`,
-      button: 'دانلود گزارش کلیک',
+      button: 'دانلود گزارش مخاطبان ارسال',
       submitting: 'در حال آماده‌سازی گزارش کلیک...',
       success: 'دانلود گزارش کلیک آغاز شد.',
       ineligible:
@@ -729,8 +737,12 @@ export const reportsTranslations: Record<'en' | 'fa', ReportsTranslations> = {
       exportUnauthorized: 'احراز هویت ناموفق بود. لطفا دوباره وارد شوید.',
       exportForbidden: 'شما دسترسی لازم برای دریافت خروجی این گزارش را ندارید.',
       exportNotFound: 'گزارش ارسال پیدا نشد.',
-      exportClickReport: 'دانلود گزارش کلیک',
-      exportingClickReport: 'در حال دانلود گزارش کلیک...',
+      actionAtr: 'ATR ارسال',
+      actionCount: 'تعداد اقدام',
+      eligibleDelivered: 'تحویل‌شده واجد شرایط',
+      campaignAtr: 'ATR ارسال',
+      exportClickReport: 'دانلود گزارش مخاطبان ارسال',
+      exportingClickReport: 'در حال آماده‌سازی گزارش مخاطبان ارسال...',
       clickReportError: 'دانلود گزارش کلیک ارسال ناموفق بود.',
       clickReportNotFound: 'گزارش کلیک این ارسال در دسترس نیست.',
       clickReportTimeout:
