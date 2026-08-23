@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { GetCampaignResponse } from '../../../types/campaign';
+import {
+  CampaignActionMetric,
+  GetCampaignResponse,
+} from '../../../types/campaign';
 import { BundleListItem } from '../../../types/bundle';
 import { ReportsCopy } from '../translations';
 import { apiService } from '../../../services/api';
@@ -68,6 +71,8 @@ const ReportDetailsModal: React.FC<ReportDetailsModalProps> = ({
   const [bundle, setBundle] = useState<BundleListItem | null>(null);
   const [bundleLoading, setBundleLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [campaignActionMetric, setCampaignActionMetric] =
+    useState<CampaignActionMetric | null>(null);
   const [smartTargetingSummary, setSmartTargetingSummary] = useState<{
     selectedTagCount: number;
     selectedRawCapacity: number;
@@ -108,6 +113,21 @@ const ReportDetailsModal: React.FC<ReportDetailsModalProps> = ({
       isActive = false;
     };
   }, [accessToken, campaign.bundle_id]);
+
+  useEffect(() => {
+    setCampaignActionMetric(null);
+    if (!campaign.uuid || !accessToken) return;
+    const controller = new AbortController();
+    apiService.setAccessToken(accessToken);
+    apiService
+      .getCampaignActionMetrics(campaign.uuid, controller.signal)
+      .then(response => {
+        if (response.success && response.data)
+          setCampaignActionMetric(response.data);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [accessToken, campaign.uuid]);
 
   useEffect(() => {
     setSmartTargetingSummary(null);
@@ -369,6 +389,25 @@ const ReportDetailsModal: React.FC<ReportDetailsModalProps> = ({
           <ReportField
             label={copy.table.phase}
             value={getPhaseLabel(campaign.phase, copy)}
+          />
+        </ReportFieldGrid>
+      </ReportSection>
+
+      <ReportSection title={copy.modal.actionAtr}>
+        <ReportFieldGrid>
+          <ReportField
+            label={copy.modal.actionCount}
+            value={formatNumberValue(campaignActionMetric?.action_count)}
+          />
+          <ReportField
+            label={copy.modal.eligibleDelivered}
+            value={formatNumberValue(
+              campaignActionMetric?.eligible_delivered_count
+            )}
+          />
+          <ReportField
+            label={copy.modal.campaignAtr}
+            value={formatPercentValue(campaignActionMetric?.campaign_atr)}
           />
         </ReportFieldGrid>
       </ReportSection>
