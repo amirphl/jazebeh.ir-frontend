@@ -71,9 +71,9 @@ export const useCampaignAudienceClickReportExport = (copy: ReportsCopy) => {
       setIsExporting(true);
       try {
         apiService.setAccessToken(accessToken);
-        const response = await apiService.exportCampaignAudienceClickReport(
-          normalizedCampaignIds
-        );
+        const response = await apiService.exportCampaignAudienceReport({
+          campaign_ids: normalizedCampaignIds,
+        });
 
         if (!response.success || !response.blob) {
           showError(getExportErrorMessage(response.message, copy));
