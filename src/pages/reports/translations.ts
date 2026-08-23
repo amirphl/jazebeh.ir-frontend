@@ -738,7 +738,7 @@ export const reportsTranslations: Record<'en' | 'fa', ReportsTranslations> = {
       exportForbidden: 'شما دسترسی لازم برای دریافت خروجی این گزارش را ندارید.',
       exportNotFound: 'گزارش ارسال پیدا نشد.',
       actionAtr: 'ATR ارسال',
-      actionCount: 'تعداد اقدام',
+      actionCount: 'تعداد اکشن',
       eligibleDelivered: 'تحویل‌شده واجد شرایط',
       campaignAtr: 'ATR ارسال',
       exportClickReport: 'دانلود گزارش مخاطبان ارسال',
