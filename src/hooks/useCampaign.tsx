@@ -403,7 +403,9 @@ const normalizeStoredCampaignData = (value: unknown): CampaignData => {
         storedSegment.smartTargetingSortBy === 'tag_capacity' ||
         storedSegment.smartTargetingSortBy === 'bundle_persona_fit_score' ||
         storedSegment.smartTargetingSortBy === 'test_phase_avg_ctr' ||
-        storedSegment.smartTargetingSortBy === 'overall_avg_ctr'
+        storedSegment.smartTargetingSortBy === 'overall_avg_ctr' ||
+        storedSegment.smartTargetingSortBy === 'test_phase_avg_atr' ||
+        storedSegment.smartTargetingSortBy === 'overall_avg_atr'
           ? storedSegment.smartTargetingSortBy
           : '',
       smartTargetingSortDirection:
