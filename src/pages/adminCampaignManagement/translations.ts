@@ -205,7 +205,7 @@ const en: AdminCampaignManagementCopy = {
       budget: 'Budget',
     },
     actions: {
-      approve: 'Approve',
+      approve: 'Approved',
       reject: 'Reject',
       cancel: 'Cancel',
       details: 'View details',
@@ -226,7 +226,7 @@ const en: AdminCampaignManagementCopy = {
     commentLabelOptional: 'Comment (optional)',
     commentLabelRequired: 'Comment (required)',
     maxChars: 'Max 1000 chars',
-    approve: 'Approve',
+    approve: 'Approved',
     reject: 'Reject',
     cancel: 'Cancel',
     submitting: 'Submitting…',
@@ -277,7 +277,7 @@ const en: AdminCampaignManagementCopy = {
     rescheduleDateRequired: 'Please select a schedule time',
     rescheduleDateInvalid: 'Selected schedule time is invalid',
     rescheduleDateTooSoon:
-      'Schedule time must be at least 5 minutes in the future',
+      'Schedule time must be at least 7 minutes in the future',
     rescheduleOutsideAllowedHours:
       'Schedule time must be between 08:00 and 21:00',
     rescheduleCampaignNotFound: 'Campaign not found',
@@ -353,7 +353,7 @@ const fa: AdminCampaignManagementCopy = {
       budget: 'بودجه',
     },
     actions: {
-      approve: 'تأیید',
+      approve: 'تأیید شد',
       reject: 'رد',
       cancel: 'لغو',
       details: 'مشاهده جزئیات',
@@ -374,7 +374,7 @@ const fa: AdminCampaignManagementCopy = {
     commentLabelOptional: 'توضیح (اختیاری)',
     commentLabelRequired: 'توضیح (الزامی)',
     maxChars: 'حداکثر ۱۰۰۰ کاراکتر',
-    approve: 'تأیید',
+    approve: 'تأیید شد',
     reject: 'رد',
     cancel: 'لغو',
     submitting: 'در حال ارسال…',
@@ -422,7 +422,7 @@ const fa: AdminCampaignManagementCopy = {
     rescheduleNotAllowed: 'در وضعیت فعلی امکان زمان‌بندی مجدد کمپین وجود ندارد',
     rescheduleDateRequired: 'لطفا زمان ارسال را انتخاب کنید',
     rescheduleDateInvalid: 'زمان انتخاب‌شده معتبر نیست',
-    rescheduleDateTooSoon: 'زمان ارسال باید حداقل ۵ دقیقه در آینده باشد',
+    rescheduleDateTooSoon: 'زمان ارسال باید حداقل ۷ دقیقه در آینده باشد',
     rescheduleOutsideAllowedHours: 'زمان ارسال باید بین ۰۸:۰۰ تا ۲۱:۰۰ باشد',
     rescheduleCampaignNotFound: 'کمپین یافت نشد',
     rescheduleInvalidState:
