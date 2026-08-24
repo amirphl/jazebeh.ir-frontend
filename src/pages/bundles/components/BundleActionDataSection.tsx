@@ -480,7 +480,9 @@ const BundleActionDataSection: React.FC<{
           <tbody>
             {metrics.map(metric => (
               <tr key={metric.tag_id} className='border-b'>
-                <td className='px-2 py-3'>{metric.tag_id}</td>
+                <td className='px-2 py-3'>
+                  {metric.tag_display_name?.trim() || labels.unavailable}
+                </td>
                 <td className='px-2 py-3'>
                   {atr(metric.test_phase_avg_atr, labels.unavailable)} (
                   {count(metric.test_action_count, labels.unavailable)}/
