@@ -212,6 +212,7 @@ export interface BundleActionSummary {
 }
 export interface BundleActionTagMetric {
   tag_id: number;
+  tag_display_name: string | null;
   test_action_count: number;
   test_eligible_delivered_count: number;
   test_phase_avg_atr: number | null;
