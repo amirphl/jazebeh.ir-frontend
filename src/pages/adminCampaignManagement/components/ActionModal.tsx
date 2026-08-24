@@ -182,22 +182,24 @@ const ActionModal: React.FC<ActionModalProps> = ({
             </div>
           </div>
 
-          <div>
-            <label className='mb-1 block text-sm font-medium'>
-              {isCommentRequired
-                ? copy.modal.commentLabelRequired
-                : copy.modal.commentLabelOptional}
-            </label>
-            <textarea
-              className='min-h-[100px] w-full rounded border px-3 py-2'
-              value={actionComment}
-              onChange={e => onCommentChange(e.target.value)}
-              maxLength={1000}
-            />
-            <div className='mt-1 text-xs text-gray-500'>
-              {copy.modal.maxChars}
+          {actionType !== 'approve' ? (
+            <div>
+              <label className='mb-1 block text-sm font-medium'>
+                {isCommentRequired
+                  ? copy.modal.commentLabelRequired
+                  : copy.modal.commentLabelOptional}
+              </label>
+              <textarea
+                className='min-h-[100px] w-full rounded border px-3 py-2'
+                value={actionComment}
+                onChange={e => onCommentChange(e.target.value)}
+                maxLength={1000}
+              />
+              <div className='mt-1 text-xs text-gray-500'>
+                {copy.modal.maxChars}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {actionError ? (
             <div className='text-sm text-red-600'>{actionError}</div>
