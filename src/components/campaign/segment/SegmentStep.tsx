@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useCampaign } from '../../../hooks/useCampaign';
 import { apiService } from '../../../services/api';
 import { useAuth } from '../../../hooks/useAuth';
-import { getJobCategories } from '../../../locales/jobCategory';
 import TitleCard from './TitleCard';
 import CapacityCard from './CapacityCard';
 import LevelOneCard from './LevelOneCard';
@@ -37,7 +36,6 @@ import {
 } from '../../../types/campaign';
 import { campaignLevelI18n } from './segmentTranslations';
 import { useLanguage } from '../../../hooks/useLanguage';
-import CategoryJobFields from '../../CategoryJobFields';
 import Button from '../../ui/Button';
 import { useToast } from '../../../hooks/useToast';
 import { useMediaUpload } from '../../../hooks/useMediaUpload';
@@ -72,6 +70,11 @@ const resolveAudienceTargetingMethod = (
   return segment.targetAudienceExcelFileUuid != null ? 'excel' : 'standard';
 };
 
+// '-' is the placeholder retained for legacy job fields after their controls
+// were removed; it must not make an otherwise empty campaign a local draft.
+const hasDraftJobValue = (value: unknown): boolean =>
+  typeof value === 'string' && value.trim() !== '' && value.trim() !== '-';
+
 interface PersistedCampaignContext {
   uuid: string;
   bundleId: number | null;
@@ -100,7 +103,6 @@ const LevelStep: React.FC = () => {
     (message: string) => showErrorRef.current(message),
     []
   );
-  const categories = getJobCategories(language);
   const isAgency = user?.account_type === 'marketing_agency';
   const campaignValidation = useCampaignValidation(campaignData, 1, isAgency);
 
@@ -121,13 +123,9 @@ const LevelStep: React.FC = () => {
     campaignData.segment.level3s || []
   );
   const [jobCategory, setJobCategory] = useState<string>(
-    campaignData.segment.jobCategory || ''
+    campaignData.segment.jobCategory || '-'
   );
-  const [job, setJob] = useState<string>(campaignData.segment.job || '');
-  const [jobErrors, setJobErrors] = useState<{
-    category?: string;
-    job?: string;
-  }>({});
+  const [job, setJob] = useState<string>(campaignData.segment.job || '-');
   const [audienceGrades, setAudienceGrades] = useState<AudienceGrade[]>(
     campaignData.segment.audienceGrades ?? []
   );
@@ -139,6 +137,21 @@ const LevelStep: React.FC = () => {
   >({});
   const [targetAudienceExcelFileName, setTargetAudienceExcelFileName] =
     useState<string | null>(null);
+
+  // These legacy required values are no longer collected in the segment form.
+  // Populate old drafts that predate the new defaults before validation runs.
+  useEffect(() => {
+    const defaultJobCategory = campaignData.segment.jobCategory || '-';
+    const defaultJob = campaignData.segment.job || '-';
+
+    if (
+      campaignData.segment.jobCategory !== defaultJobCategory ||
+      campaignData.segment.job !== defaultJob
+    ) {
+      updateLevel({ jobCategory: defaultJobCategory, job: defaultJob });
+    }
+  }, [campaignData.segment.jobCategory, campaignData.segment.job, updateLevel]);
+
   const isTargetAudienceExcelFileModeByValue = (value: unknown): boolean =>
     value !== null && value !== undefined;
   const audienceTargetingMethod = resolveAudienceTargetingMethod(
@@ -210,8 +223,8 @@ const LevelStep: React.FC = () => {
         !!segment.sex ||
         (Array.isArray(segment.city) && segment.city.length > 0) ||
         (typeof segment.bundleId === 'number' && segment.bundleId > 0) ||
-        !!segment.jobCategory ||
-        !!segment.job ||
+        hasDraftJobValue(segment.jobCategory) ||
+        hasDraftJobValue(segment.job) ||
         !!content.text ||
         !!content.link ||
         !!content.scheduleAt ||
@@ -228,8 +241,8 @@ const LevelStep: React.FC = () => {
       !!level1 ||
       (Array.isArray(level2s) && level2s.length > 0) ||
       (Array.isArray(level3s) && level3s.length > 0) ||
-      !!jobCategory ||
-      !!job ||
+      hasDraftJobValue(jobCategory) ||
+      hasDraftJobValue(job) ||
       isTargetAudienceExcelFileModeByValue(
         currentSegment.targetAudienceExcelFileUuid // NOTE: vs current.segment
       ) ||
@@ -440,8 +453,8 @@ const LevelStep: React.FC = () => {
           : null
       );
       setAudienceGrades(normalized.segment.audienceGrades || []);
-      setJobCategory(normalized.segment.jobCategory || '');
-      setJob(normalized.segment.job || '');
+      setJobCategory(normalized.segment.jobCategory || '-');
+      setJob(normalized.segment.job || '-');
 
       lastInitiatedFetchedRef.current = true;
     };
@@ -1267,23 +1280,6 @@ const LevelStep: React.FC = () => {
     });
   };
 
-  const handleJobCategoryChange = (value: string) => {
-    setJobCategory(value);
-    setJob('');
-    updateLevel({ jobCategory: value, job: '' });
-    setJobErrors(prev => ({
-      ...prev,
-      category: value ? '' : t.agencyCategoryRequired,
-      job: '',
-    }));
-  };
-
-  const handleJobChange = (value: string) => {
-    setJob(value);
-    updateLevel({ job: value });
-    setJobErrors(prev => ({ ...prev, job: value ? '' : t.agencyJobRequired }));
-  };
-
   const handleLevel3Toggle = (l3: string) => {
     setLevel3s(prev => {
       if (prev.includes(l3)) {
@@ -1295,6 +1291,48 @@ const LevelStep: React.FC = () => {
   };
 
   const handlePlatformChange = (value: CampaignPlatform) => {
+    const currentCampaign = campaignDataRef.current;
+    if (currentCampaign.segment.platform === value) return;
+
+    const nextCampaign: CampaignData = {
+      ...currentCampaign,
+      segment: {
+        ...currentCampaign.segment,
+        platform: value,
+        audienceTargetingMethod: 'standard',
+        level1: '',
+        level2s: [],
+        level3s: [],
+        targetAudienceExcelFileUuid: null,
+        tags: [],
+        selectedTagIds: [],
+        smartTargetingSelectedRawCapacity: 0,
+        smartTargetingSelectionDirty: false,
+        smartTargetingScoreClasses: [],
+        smartTargetingScoreClassesDirty: false,
+        smartTargetingTestSamplingInputsDirty: false,
+        smartTargetingCapacityCalculation: null,
+        smartTargetingExactCapacityRequired: false,
+        smartTargetingSortBy: '',
+        smartTargetingSortDirection: 'desc',
+        smartTargetingSelectionOrderPending: false,
+        smartTargetingTestPreview: null,
+        smartTargetingTestPreviewInputKey: null,
+        smartTargetingTestPreviewStale: false,
+        capacity: 0,
+        capacityTooLow: false,
+        audienceGrades: [],
+        sex: '',
+        city: [],
+      },
+      content: {
+        ...currentCampaign.content,
+        lineNumber: '',
+        platformSettingsId: null,
+        mediaUuid: null,
+      },
+    };
+
     targetingModeSequenceRef.current += 1;
     excelUploadSequenceRef.current += 1;
     setPlatform(value);
@@ -1339,6 +1377,31 @@ const LevelStep: React.FC = () => {
       sex: '',
       city: [],
     });
+
+    if (currentCampaign.uuid.trim()) {
+      // The generic serializer deliberately omits empty optional fields. A
+      // platform switch must instead send explicit empty values so the PUT
+      // clears targeting that is no longer valid for the new platform.
+      const payload = {
+        ...serializeCampaignPayload(nextCampaign, {
+          includeContent: true,
+          includeBudget: true,
+          finalize: false,
+        }),
+        level1: '',
+        level2s: [],
+        level3s: [],
+        tags: [],
+        selected_tag_ids: [],
+        audience_grades: [],
+        sex: '',
+        city: [],
+      };
+      void apiService.updateCampaign(
+        currentCampaign.uuid,
+        payload
+      );
+    }
   };
 
   const handleReset = () => {
@@ -1358,9 +1421,8 @@ const LevelStep: React.FC = () => {
     setGradeCapacities({ A: 0, B: 0, C: 0 });
     setAudienceGrades([]);
     setTargetAudienceExcelFileName(null);
-    setJobCategory('');
-    setJob('');
-    setJobErrors({});
+    setJobCategory('-');
+    setJob('-');
     clearLevelSelection();
 
     resetCampaign();
@@ -1419,38 +1481,6 @@ const LevelStep: React.FC = () => {
             validationMessage={t.campaignTitleValidation}
           />
         </div>
-
-        {isAgency && (
-          <div className='md:col-span-2'>
-            <div className='bg-white shadow-sm border border-gray-200 rounded-lg p-4'>
-              <CategoryJobFields
-                category={jobCategory}
-                job={job}
-                onChange={(field, value) =>
-                  field === 'jobCategory'
-                    ? handleJobCategoryChange(value)
-                    : handleJobChange(value)
-                }
-                requiredLabel={<span className='text-red-500'>*</span>}
-                strings={{
-                  categoryHeader: t.agencyCategoryHeader,
-                  category: t.agencyCategory,
-                  selectCategory: t.agencySelectCategory,
-                  job: t.agencyJob,
-                  selectJob: t.agencySelectJob,
-                }}
-                categories={categories}
-                errors={{
-                  category:
-                    isAgency && !jobCategory
-                      ? t.agencyCategoryRequired
-                      : jobErrors.category,
-                  job: isAgency && !job ? t.agencyJobRequired : jobErrors.job,
-                }}
-              />
-            </div>
-          </div>
-        )}
 
         <div className='md:col-span-2'>
           <div className='bg-white shadow-sm border border-gray-200 rounded-lg p-4'>
