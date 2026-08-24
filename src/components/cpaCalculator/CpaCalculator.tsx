@@ -211,14 +211,14 @@ const CpaCalculatorModal: React.FC<CpaCalculatorProps> = ({
       <div className='absolute inset-0 bg-slate-950/50' onClick={onClose} />
       <div
         dir={dir}
-        className='relative max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl'
+        className='cpa-calculator-modal relative max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl'
       >
         <div className='max-h-[92vh] overflow-y-auto'>
-          <section className='relative overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.16),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(244,63,94,0.12),_transparent_28%),linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] px-6 py-8 sm:px-8'>
+          <section className='cpa-calculator-header relative overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.16),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(244,63,94,0.12),_transparent_28%),linear-gradient(180deg,_#ffffff_0%,_#f8fafc_100%)] px-6 py-8 sm:px-8'>
             <div className='absolute inset-x-0 bottom-0 h-24 bg-gradient-to-r from-blue-100/40 via-transparent to-rose-100/40' />
             <div className='relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between'>
               <div className='space-y-3'>
-                <div className='inline-flex rounded-full border border-blue-200 bg-white/90 px-4 py-1 text-xs font-semibold text-blue-700 shadow-sm'>
+                <div className='cpa-calculator-title-badge inline-flex rounded-full border border-blue-200 bg-white/90 px-4 py-1 text-xs font-semibold text-blue-700 shadow-sm'>
                   {translations.title}
                 </div>
                 <div>
@@ -231,7 +231,7 @@ const CpaCalculatorModal: React.FC<CpaCalculatorProps> = ({
                 </div>
               </div>
               <div className='flex items-start gap-3 self-start'>
-                <div className='rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold text-blue-800 shadow-sm'>
+                <div className='cpa-calculator-hero-badge rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-semibold text-blue-800 shadow-sm'>
                   {translations.heroBadge}
                 </div>
                 <button
@@ -245,13 +245,13 @@ const CpaCalculatorModal: React.FC<CpaCalculatorProps> = ({
             </div>
           </section>
 
-          <div className='space-y-6 bg-slate-50/70 p-6 sm:p-8'>
-            <section className='rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm'>
+          <div className='cpa-calculator-content space-y-6 bg-slate-50/70 p-6 sm:p-8'>
+            <section className='cpa-calculator-section rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm'>
               <h4 className='mb-5 text-base font-bold text-slate-800'>
                 {translations.mainSendSectionTitle}
               </h4>
               <div className='grid gap-4 md:grid-cols-2'>
-                <div className='rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm'>
+                <div className='cpa-calculator-send-card rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm'>
                   <label className='mb-2 block text-sm font-semibold text-slate-800'>
                     {translations.mainSendLabel}
                   </label>
@@ -262,7 +262,7 @@ const CpaCalculatorModal: React.FC<CpaCalculatorProps> = ({
                     {translations.mainSendFormula}
                   </p>
                 </div>
-                <div className='rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm'>
+                <div className='cpa-calculator-send-card rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm'>
                   <label className='mb-2 block text-sm font-semibold text-slate-800'>
                     {translations.supplementSendLabel}
                   </label>
@@ -276,7 +276,7 @@ const CpaCalculatorModal: React.FC<CpaCalculatorProps> = ({
               </div>
             </section>
 
-            <section className='rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm'>
+            <section className='cpa-calculator-section rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm'>
               <h4 className='mb-5 text-base font-bold text-slate-800'>
                 {translations.primarySectionTitle}
               </h4>
@@ -327,7 +327,7 @@ const CpaCalculatorModal: React.FC<CpaCalculatorProps> = ({
               ) : null}
             </section>
 
-            <section className='rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm'>
+            <section className='cpa-calculator-section rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm'>
               <h4 className='mb-5 text-base font-bold text-slate-800'>
                 {translations.pricingSectionTitle}
               </h4>
