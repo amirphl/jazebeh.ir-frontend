@@ -40,6 +40,6 @@ export const RESCHEDULABLE_STATUSES = new Set<string>([
   'approved',
 ]);
 
-export const RESCHEDULE_MIN_LEAD_MINUTES = 5;
+export const RESCHEDULE_MIN_LEAD_MINUTES = 7;
 export const RESCHEDULE_HOUR_START = 8;
 export const RESCHEDULE_HOUR_END = 21;
