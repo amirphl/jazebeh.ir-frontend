@@ -3,6 +3,7 @@ import '@testing-library/jest-dom';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, jest } from '@jest/globals';
 import { AdminGetCampaignResponse } from '../../../types/admin';
+import { RESCHEDULE_MIN_LEAD_MINUTES } from '../constants';
 import { getAdminCampaignManagementCopy } from '../translations';
 import ActionModal from './ActionModal';
 
@@ -17,6 +18,10 @@ const campaign: AdminGetCampaignResponse = {
 };
 
 describe('ActionModal', () => {
+  it('requires at least 7 minutes of lead time for rescheduling', () => {
+    expect(RESCHEDULE_MIN_LEAD_MINUTES).toBe(7);
+  });
+
   it.each([
     ['approve', copy.modal.approve, ''],
     ['reject', copy.modal.reject, 'Invalid campaign details'],
@@ -55,6 +60,12 @@ describe('ActionModal', () => {
       expect(
         within(scrollArea).queryByRole('button', { name: actionLabel })
       ).toBeNull();
+
+      if (actionType === 'approve') {
+        expect(screen.queryByRole('textbox')).toBeNull();
+      } else {
+        expect(screen.getByRole('textbox')).not.toBeNull();
+      }
 
       fireEvent.click(actionButton);
       expect(onSubmit).toHaveBeenCalledTimes(1);
