@@ -29,7 +29,7 @@ const CpaCalculatorFieldCard: React.FC<CpaCalculatorFieldCardProps> = ({
 }) => {
   return (
     <div
-      className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+      className={`cpa-calculator-field-card rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
         field.emphasized ? accentClassByType[field.emphasized] : ''
       }`}
     >
