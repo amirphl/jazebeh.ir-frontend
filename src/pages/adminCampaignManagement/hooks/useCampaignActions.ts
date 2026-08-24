@@ -34,7 +34,7 @@ export const useCampaignActions = ({
     (campaign: AdminGetCampaignResponse, nextAction: CampaignActionType) => {
       setActionCampaign(campaign);
       setActionType(nextAction);
-      setActionComment('');
+      setActionComment(nextAction === 'approve' ? 'Approved' : '');
       setActionError(null);
     },
     []
@@ -62,7 +62,8 @@ export const useCampaignActions = ({
       return;
     }
 
-    const trimmedComment = actionComment.trim();
+    const trimmedComment =
+      actionType === 'approve' ? 'Approved' : actionComment.trim();
     if (requiresComment(actionType) && !trimmedComment) {
       setActionError(copy.errors.commentRequired);
       showError(copy.errors.commentRequired);
