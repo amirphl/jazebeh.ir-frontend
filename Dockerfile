@@ -51,7 +51,7 @@ RUN npm run build:production
 # Stage 2: Production stage. Alpine's nginx and headers-more packages are built
 # together, which lets us remove the otherwise unavoidable `Server: nginx`
 # response header without using a binary-incompatible third-party module.
-FROM alpine:3.22 AS production
+FROM alpine:3.24 AS production
 
 # Install security updates and necessary packages
 RUN apk upgrade --no-cache && \
