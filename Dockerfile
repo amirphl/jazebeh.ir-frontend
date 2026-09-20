@@ -2,7 +2,7 @@
 # Supports: jazebeh.ir and beta.jazebeh.ir
 
 # Stage 1: Build stage
-FROM node:24-bookworm-slim AS builder
+FROM node:26-bookworm-slim AS builder
 
 # Build arguments
 ARG NPM_REGISTRY=https://registry.npmjs.org/
